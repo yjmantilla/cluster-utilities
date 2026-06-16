@@ -1,0 +1,236 @@
+# Compute Canada (Alliance) + Claude Code — Operating Guide
+
+**Purpose.** A project-agnostic handoff for working on Digital Research Alliance of Canada (Compute Canada) HPC clusters — `fir`, `narval`, `beluga`, `graham`, `cedar`, `trillium` — with a coding agent (Claude Code or similar). It captures the cluster workflow, safe-automation rules, and the gotchas that cost real debugging time, so you don't have to rediscover them.
+
+> **How to use this.** Read Parts A–B to get oriented. If you use Claude Code / a coding agent, drop Part A + Part B into your own **global** `~/.claude/CLAUDE.md` so the agent inherits the rules on every project (see Part D). Everything here is generic Alliance knowledge — **no project-specific code, data, or results** — fill in the placeholders below for your own setup.
+
+> **⚠️ Fill these in for your own setup.** Replace `<username>` with your Alliance/CCDB username everywhere. Replace `<group>` / `<lab>` with your allocation group. Use **your own** SSH keys and credentials — never reuse anyone else's. Confirm with your PI which allocation you're entitled to (`def-<lab>`, `rrg-<lab>`, `def-<lab>_gpu`).
+
+---
+
+## TL;DR quick-start
+
+1. **Never run compute on a login node.** Login nodes are for editing, `git`, `squeue`/`sbatch`/`sacct`, `rsync`, and small `ls`/`cat` only. Everything heavier (`pip install`, `pytest`, `import jax/torch/mne`, any fit/training/preprocessing) goes inside `salloc` (interactive) or `sbatch` (batch).
+2. **From Windows, drive the cluster through WSL, not git-bash.** WSL `ssh` supports connection multiplexing (ControlMaster) so you authenticate Duo once and reuse the socket. (On macOS/Linux, native `ssh` multiplexing works directly.)
+3. **Compute on the cluster, analyse on your laptop.** `rsync` results back and run plotting/aggregation locally — never on a login node.
+4. **Smoke-test cheap before you spend big.** Run one representative job, check it with `seff`, then launch the array. Gate expensive jobs behind a passing smoke test.
+5. **Nothing irreversible without a human yes.** Show the exact command before any `sbatch`, `git push`, or file deletion, and wait for approval.
+
+---
+
+## Part A — Operating rules for a coding agent on the cluster
+
+Generic, safe-automation rules. These keep an agent from doing something expensive or destructive without you in the loop. Good defaults for any HPC project.
+
+### A.1 Stop and ask before anything irreversible or outward-facing
+Require explicit approval before:
+- Submitting Slurm jobs that do real compute (`sbatch` / heavy `salloc` / `srun`)
+- `git push` (any remote) — and **never** force-push
+- Deleting result or data files
+- Any push to an external service (Overleaf, a paper repo, a shared doc)
+
+And flag immediately (don't just continue) if results contradict earlier conclusions or a memory/runtime regression appears.
+
+### A.2 No autonomous loops, no persistent agents on login
+- One compute cycle per explicit approval — no self-driving loops.
+- Never start a persistent agent, server, Jupyter, or long-lived session **on a login node**.
+- Show the exact command and wait — every time.
+
+### A.3 Secrets & hygiene
+- Never commit or paste secrets (SSH keys, Duo, API tokens, git remote URLs that embed a token).
+- Keep code and large result files separate; bulky outputs go to `/scratch`, release artifacts, Git LFS, or ignored storage — not your code repo.
+
+### A.4 Before any `sbatch`, show the plan
+The agent should print, and you should sanity-check: **account · partition/GPU request · time · memory · CPUs · expected output files · the exact command.** Cross-check against `seff` from a prior run.
+
+### A.5 Report faithfully
+If a job fails, say so with the output. If a step was skipped, say it. Don't claim a result is "validated" or "done" unless the evidence is in hand. (If you write up results, prefer cautious language — "preliminary", "in this configuration", "suggests" — over absolute claims.)
+
+---
+
+## Part B — Alliance cluster workflow
+
+### B.1 The golden rule: never compute on login nodes
+A login node (e.g. `login1.fir.alliancecan.ca`) is shared by everyone and is for light interactive use only.
+
+**Forbidden on login** (trips Alliance abuse detection → throttling/ban):
+`pip install` (anything non-trivial — pulls deps, compiles wheels) · `pytest` · `python -c "import jax/torch/mne"` (triggers XLA/CUDA/scipy init) · any fit, training loop, or dataset preprocessing · long repo-importing scripts · background pollers that re-SSH every few seconds.
+
+**OK on login:** `git pull/status/log/push` (small repos) · `squeue`/`sbatch`/`scancel`/`sacct`/`seff`/`sstat` · `ls`/`cat`/`head`/`tail` on small files · `rsync` to/from your laptop · `nano`/`vim` · `module list`/`module avail` · `env`/`which python`.
+
+**If you slip:** `Ctrl+C` immediately; `pkill -u $USER python` if it lingers; drop a dated note in `/scratch/$USER/notes/` so you have a paper trail; use `salloc` going forward.
+
+> A one-shot `ssh cluster 'git pull'` / `squeue` / `sbatch` is fine — it's not a persistent agent. The moment that one-shot command is a Python import or `pip install`, it's compute on login.
+
+### B.2 SSH setup — multiplex so you Duo once
+Alliance clusters require **publickey + Duo MFA** on every fresh connection. A non-interactive tool can't answer Duo, so the trick is **connection multiplexing**: authenticate once interactively, then reuse the socket for all subsequent calls.
+
+**On macOS / Linux** — native `ssh` multiplexing works. In `~/.ssh/config`:
+```ssh-config
+Host *
+  ServerAliveInterval 300
+  ControlMaster auto
+  ControlPersist 4h
+  ControlPath ~/.ssh/cm-%r@%h:%p
+
+Host fir
+  HostName fir.alliancecan.ca
+  User <username>
+  IdentityFile ~/.ssh/id_ed25519
+```
+
+**On Windows** — **use WSL, not git-bash.** Windows/Git-for-Windows `ssh` cannot multiplex (`mux_client_request_session: read from master failed` / `Failed to connect to new control master`); do **not** put `ControlMaster` in `C:\Users\<you>\.ssh\config`. Instead, put the config above inside **WSL's** `~/.ssh/config` (the `:` in `ControlPath` is legal on the Linux filesystem). Then:
+
+```bash
+# keep ONE interactive session open in a WSL terminal — approve Duo once; it's the master socket
+wsl ssh fir
+# all other calls ride the master with no Duo:
+wsl.exe bash -c "ssh fir 'squeue --me'"
+# stream a multi-line script (login shell so sbatch/modules are on PATH; quote 'EOF' so $vars expand on the cluster):
+wsl.exe bash -c 'ssh fir "bash -l -s"' <<'EOF'
+cd /scratch/$USER/myproject && git pull --ff-only
+EOF
+```
+If a call suddenly returns `Permission denied (keyboard-interactive)`, the master expired — run `ssh fir` once interactively to re-establish it.
+
+> **Keys:** `ssh-keygen -t ed25519`, then upload the **public** key via the CCDB portal (https://ccdb.alliancecan.ca → Manage SSH Keys), not by hand-editing `authorized_keys`. A CCDB-registered key does **not** exempt you from Duo on interactive login.
+
+> **Tip:** don't pass complex nested-quote command strings through `wsl ssh`. Write a clean `.py`/`.sh` locally, `scp` it over, and run it.
+
+### B.3 Interactive work: `salloc`
+```bash
+# CPU
+salloc --time=1:00:00 --cpus-per-task=4 --mem=16G --account=def-<lab>
+# GPU (fir H100)
+salloc --time=1:00:00 --cpus-per-task=4 --mem=32G --gres=gpu:h100:1 --account=def-<lab>_gpu
+srun --pty bash -l        # land in the compute-node shell
+hostname                  # confirm a node like fc10408, NOT loginN
+# now pip install / pytest / heavy imports / GPU sanity-checks are all fine
+exit                      # release the allocation ASAP
+```
+
+### B.4 Batch work: `sbatch`
+Long jobs always go through `sbatch`, never `salloc` + manual run. Prefer **array jobs** — independent tasks, easy reruns, cleaner logs, better scheduling.
+
+Header cheat sheet:
+```bash
+#!/bin/bash
+#SBATCH --job-name=descriptive_name
+#SBATCH --account=def-<lab>           # or rrg-<lab> when the job truly uses the CPU/GPU
+#SBATCH --time=HH:MM:SS               # shorter realistic requests schedule faster
+#SBATCH --cpus-per-task=N             # match true parallelism
+#SBATCH --mem=XG                      # enough, not wildly high
+#SBATCH --gres=gpu:h100:1             # only when GPU-bound
+#SBATCH --output=logs/%x-%A_%a.out
+#SBATCH --error=logs/%x-%A_%a.err
+#SBATCH --array=0-99%20               # arrays >> monolithic loops; %20 caps concurrent tasks
+```
+
+Chain stages with dependencies — gate arrays behind a smoke test so a broken env fails cheap:
+```bash
+SMOKE=$(sbatch --parsable submit_smoke.sh)
+JOB=$(sbatch --parsable --dependency=afterok:$SMOKE submit_array.sh)
+```
+`afterok` = run only if the parent succeeded; `afterany` = run regardless; `--parsable` = print just the job id.
+
+### B.5 Right-size resources (don't guess)
+Run **one** representative job, then:
+```bash
+seff <job_id>     # one-line efficiency summary
+sacct -j <job_id> --format=JobID,State,Elapsed,TotalCPU,AllocCPUS,MaxRSS,ReqMem
+```
+Set `--mem` ≈ `MaxRSS` × ~1.3, `--time` ≈ `Elapsed` × ~1.5, `--cpus-per-task` to the parallelism you actually use. If `MaxRSS` ≪ `ReqMem`, you over-requested — it slows your future scheduling (fairshare). GPU jobs are usually short and memory-light per task; CPU jobs of the same work run much longer and need more RAM — size them separately.
+
+### B.6 Which cluster, and which account
+| Use case | Cluster | Why |
+|---|---|---|
+| Feature extraction, preprocessing, dataset conversion, metrics, small/medium CPU jobs | **fir** | Don't burn a GPU allocation unless the work is actually GPU-bound |
+| Single-GPU training/inference that fits on one H100 | **fir GPU partition** | Faster queue than Trillium for small GPU jobs |
+| Foundation-model training, large multi-GPU / multi-node | **Trillium-GPU** | Only when genuinely GPU-bound and large |
+
+- **`def-<lab>`** — default allocation, modest priority. Use when you can't yet prove the CPU/GPU is well-utilised.
+- **`rrg-<lab>`** — higher-priority RRG allocation. Reserve for jobs that strongly use the CPU/GPU; don't spend it on exploratory work.
+- fir GPU partition: `--account=def-<lab>_gpu --partition=gpubase_bygpu_b1 --gres=gpu:h100:1`.
+
+### B.7 Storage hierarchy
+| Path | Use | Notes |
+|---|---|---|
+| `/home/$USER` | small code, env files, shell config | ~50 GB, backed up; **may be read-only from compute nodes** — don't write job outputs here |
+| `/project/<group>` | shared raw + processed data, final checkpoints, shared outputs | shared group quota; long-lived artifacts |
+| `/scratch/$USER` | working space, intermediates, job outputs | ~20 TB; **purged after 60 days** — not for anything you want to keep |
+| `$SLURM_TMPDIR` | node-local hot data during a running job | gone when the job ends |
+
+Move caches off `$HOME`: `export XDG_CACHE_HOME=/scratch/$USER/.cache; export PIP_CACHE_DIR=/scratch/$USER/.cache/pip`. Checkpoint regularly. Code lives in git, not as the source of truth on the cluster.
+
+### B.8 Building environments & datasets
+- **Build venvs / install packages inside an allocation** (`salloc`), never on login. On Alliance, prefer the module stack + `virtualenv --no-download`, then `pip install --no-index` against the wheelhouse where possible.
+- **Datasets: download on the login node** (compute nodes have **no internet**). For DataLad/git-annex datasets, fetch only what you need:
+  ```bash
+  module load git-annex/<version>
+  cd /project/<group>/datasets/<dataset>
+  git annex get <only the files you need>
+  ```
+  Unfetched annex files appear as **broken symlinks** — a job that hits one fails fast with `FileNotFoundError`. Verify what's actually materialised before a sweep: `find -L <dir> -name "<pattern>" -type f` (`-L` follows symlinks; `-type f` drops the broken ones).
+
+### B.9 The canonical agent-driven loop
+1. **Local:** code, test, commit, push to origin.
+2. **One-shot SSH (login-safe):** `ssh cluster 'cd /scratch/$USER/repo && git pull --ff-only'`
+3. **Submit from login:** `ssh cluster 'cd repo && sbatch --array=… submit.sh'` — capture the job id.
+4. **Poll occasionally** (≤ once/min, one `sacct`, don't keep a session warm): `ssh cluster 'sacct -j <id> --format=State,Elapsed,MaxRSS,ExitCode -P | head'`
+5. **When done:** `rsync -av cluster:/scratch/$USER/results/ ./results/`
+6. **Analyse locally.** The cluster is compute-only.
+
+### B.10 Monitoring & cleanup
+```bash
+squeue -u "$USER"            # active jobs
+seff <id>                    # efficiency summary after a run
+sstat -j <id>                # live stats on a running job
+diskusage_report             # /home, /project, /scratch quotas
+du -sh /scratch/$USER/*      # find bloat
+```
+Never delete shared files without checking ownership and the project README. Archive inactive data to `/nearline`; don't bulk-delete.
+
+---
+
+## Part C — Gotchas catalogue (cost real time; now you skip them)
+
+| Symptom / situation | What's actually going on | Fix |
+|---|---|---|
+| `ssh cluster` denied from Windows git-bash; `mux_client_request_session: read from master failed` | Windows `ssh` can't multiplex | Use **WSL** ssh with ControlMaster; keep one interactive session open as the master (Part B.2) |
+| GPU job: `Unable to initialize backend 'cuda'` → with `JAX_TRACEBACK_FILTERING=off`, `cuInit(0) failed: CUDA_ERROR_NO_DEVICE`, **yet `nvidia-smi` shows the GPU** | A **bad GPU node**, not your env | `--exclude=<node>` and resubmit. Bad nodes change over time — diagnose by the symptom, exclude, retry. Don't start editing your CUDA env/`LD_LIBRARY_PATH` over this. |
+| `sbatch: error: Batch script contains DOS line breaks (\r\n)` | A `.sh`/`.sbatch` got saved with Windows CRLF | Cluster-bound files need **LF**. From Windows Python: `Path.write_text(text, newline="\n")`. Quick patch on the cluster: `sed -i 's/\r$//' <file>`. Lock it with `.gitattributes`: `*.sh text eol=lf` / `*.sbatch text eol=lf`. |
+| A `.ps1` script fails on Windows with "string is missing the terminator `"@`" | Windows **PowerShell 5.1** requires CRLF for here-strings (PowerShell 7 is fine with either) | Windows-bound `.ps1` need **CRLF** — the opposite of cluster `.sh`. `.gitattributes`: `*.ps1 text eol=crlf`. |
+| `sbatch: NOTE: Your memory request of 32768.0M was likely submitted as 32.0G…` | **Informational only** — Slurm reads `G` as binary (1024 M); your `--mem=32G` is honoured as intended | Ignore it. Don't `2>/dev/null` (hides real errors); don't switch to `--mem=32000M` (that changes the actual allocation). |
+| `pip install jax[cuda12]` "downgrades" JAX and you end up CPU-only | JAX CUDA wheels are **Linux-only**; there's no native-Windows GPU wheel, so pip strips the extra | Don't install the cuda extra in a native Windows venv. Use WSL2 (Linux), or the cluster. Cluster GPU install pattern: `pip install -e ".[gpu]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html`. On WSL2, install the **Windows** NVIDIA driver only — never a Linux display driver inside WSL. |
+| WSL2 GPU won't attach: `cuInit failed: CUDA error 100` / "GPU access blocked by the operating system" | Host-level GPU-partitioning (GPU-P) hiccup — Hyper-V can't hand the GPU to the WSL VM (common on laptop dGPUs) | A full **Windows reboot** re-enrolls GPU-P. Beware: `wsl --shutdown` can make it worse and may need `gpuSupport=false` in `%USERPROFILE%\.wslconfig` just to boot WSL. For serious GPU work, use the cluster. |
+| Login succeeds at Duo but the shell drops with "Login is offline / Noeud de connexion est hors-ligne" (esp. Narval) | One of several gates **beyond** Duo | Check, in order: (1) a cluster outage at status.alliancecan.ca; (2) the **CCDB access agreement** for that cluster at ccdb.alliancecan.ca/me/access_systems (independent of MFA — every new user must accept it once); (3) a single bad login node (the hostname is round-robin DNS — try `cluster1/2/3` individually). |
+| `module load … | tail` then "module not loaded" | The pipe runs the Lmod shell function in a **subshell**, so the load doesn't persist | Don't pipe `module load`. Use redirects (`>/dev/null 2>&1`) or none, then check `module list`. Also: for `srun`, **omit** `--partition` and let account+gres route; `sbatch` accepts the partition fine. |
+
+---
+
+## Part D — Setting up your own Claude Code for cluster work
+
+Two layers of "memory" make an agent useful across sessions:
+
+1. **`~/.claude/CLAUDE.md` (global, all projects)** — put Parts A + B of this guide here, with your `<username>`/`<group>` filled in. Every session inherits these rules, so the agent won't try to `pip install` on a login node or push without asking.
+2. **Per-project `CLAUDE.md` (in the repo root)** — project-specific rules: which Slurm scripts to use, where outputs go, what "done" means for that project, any stop conditions.
+3. **The `memory/` directory (auto-memory)** — Claude can persist one fact per file (gotchas, decisions, environment quirks) and recall them later. This is how knowledge like the gotchas in Part C accumulates over time instead of being re-learned each session.
+
+Start small: drop the Alliance rules into your global `CLAUDE.md`, add a short project `CLAUDE.md`, and let the memory grow as you hit (and solve) issues.
+
+---
+
+## Appendix — Alliance onboarding checklist
+
+- [ ] CCDB account; confirm with your PI which allocation group + accounts you can use (`def-<lab>`, `rrg-<lab>`, `def-<lab>_gpu`).
+- [ ] Generate an SSH key (`ssh-keygen -t ed25519`); upload the **public** key via CCDB.
+- [ ] Accept the **CCDB access agreement** for each cluster you'll use at ccdb.alliancecan.ca/me/access_systems (blocks login until done — independent of MFA).
+- [ ] Set up Duo MFA; on Windows, install **WSL2** and put the multiplexing `~/.ssh/config` (Part B.2) inside WSL with your username. Test `ssh fir`, approve Duo once.
+- [ ] Learn the storage layout (Part B.7): code in git, outputs to `/scratch`, shared data in `/project`.
+- [ ] Build your environment **inside `salloc`**, never on login.
+- [ ] Bookmark: https://docs.alliancecan.ca · https://status.alliancecan.ca · https://ccdb.alliancecan.ca
+- [ ] Read Part A before letting an agent touch the cluster.
+
+---
+
+*This guide is generic Alliance + agent operating knowledge, written for reuse across projects. Authoritative live sources: the Alliance docs (docs.alliancecan.ca), your cluster's status page, and your own project's README/CLAUDE.md.*
