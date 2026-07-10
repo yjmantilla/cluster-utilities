@@ -164,7 +164,19 @@ Move caches off `$HOME`: `export XDG_CACHE_HOME=/scratch/$USER/.cache; export PI
 
 ### B.8 Building environments & datasets
 - **Build venvs / install packages inside an allocation** (`salloc`), never on login. On Alliance, prefer the module stack + `virtualenv --no-download`, then `pip install --no-index` against the wheelhouse where possible.
-- **Datasets: download on the login node** (compute nodes have **no internet**). For DataLad/git-annex datasets, fetch only what you need:
+- **Internet access on compute nodes is cluster-dependent.** Do not assume — test with a one-liner job (`sbatch --wrap="curl -s --max-time 10 https://example.com && echo OK || echo FAIL" ...`). Known state as of 2026:
+  - **fir**: compute nodes **have** outbound internet — HuggingFace, pip, wget all work from batch jobs.
+  - **Older clusters (Cedar, Graham, Beluga)**: compute nodes typically have **no** internet. Download on the login node or a data-transfer node (DTN) instead.
+  - When in doubt, test first — don't assume either way.
+- **Download jobs** (HuggingFace, wget, git-annex, rsync from external): these are I/O-bound, not compute-bound. Use minimal resources — don't waste GPU allocation or over-request CPUs and memory:
+  ```bash
+  #SBATCH --account=def-<lab>       # CPU account, NOT the _gpu account
+  #SBATCH --cpus-per-task=2         # download is I/O-bound, not CPU-bound
+  #SBATCH --mem=8G                  # enough for HF snapshot + light preprocessing
+  #SBATCH --time=24:00:00           # generous; large datasets can be slow
+  ```
+  If the cluster has no internet, use the login node for the download step only (`ssh cluster 'cd /scratch/... && huggingface-cli download ...'`), then submit a separate compute job for preprocessing.
+- **DataLad / git-annex datasets**: fetch only what you need:
   ```bash
   module load git-annex/<version>
   cd /project/<group>/datasets/<dataset>
@@ -202,6 +214,8 @@ Never delete shared files without checking ownership and the project README. Arc
 | A `.ps1` script fails on Windows with "string is missing the terminator `"@`" | Windows **PowerShell 5.1** requires CRLF for here-strings (PowerShell 7 is fine with either) | Windows-bound `.ps1` need **CRLF** — the opposite of cluster `.sh`. `.gitattributes`: `*.ps1 text eol=crlf`. |
 | `sbatch: NOTE: Your memory request of 32768.0M was likely submitted as 32.0G…` | **Informational only** — Slurm reads `G` as binary (1024 M); your `--mem=32G` is honoured as intended | Ignore it. Don't `2>/dev/null` (hides real errors); don't switch to `--mem=32000M` (that changes the actual allocation). |
 | `pip install jax[cuda12]` "downgrades" JAX and you end up CPU-only | JAX CUDA wheels are **Linux-only**; there's no native-Windows GPU wheel, so pip strips the extra | Don't install the cuda extra in a native Windows venv. Use WSL2 (Linux), or the cluster. Cluster GPU install pattern: `pip install -e ".[gpu]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html`. On WSL2, install the **Windows** NVIDIA driver only — never a Linux display driver inside WSL. |
+| HuggingFace / wget download fails inside a batch job | Compute nodes may not have internet — depends on the cluster (see B.8) | Test first: `sbatch --wrap="curl -s https://example.com && echo OK || echo FAIL" ...`. On **fir**, compute nodes have internet and downloads work fine in batch jobs. On older clusters (Cedar/Graham/Beluga), use the login node or a DTN. |
+| Download job uses 8 CPUs, 32G, GPU account — queues for hours | Downloading is I/O-bound; over-requesting burns fairshare and delays scheduling | Use `--cpus-per-task=2 --mem=8G --account=def-<lab>` (CPU account). See B.8 download job template. |
 | WSL2 GPU won't attach: `cuInit failed: CUDA error 100` / "GPU access blocked by the operating system" | Host-level GPU-partitioning (GPU-P) hiccup — Hyper-V can't hand the GPU to the WSL VM (common on laptop dGPUs) | A full **Windows reboot** re-enrolls GPU-P. Beware: `wsl --shutdown` can make it worse and may need `gpuSupport=false` in `%USERPROFILE%\.wslconfig` just to boot WSL. For serious GPU work, use the cluster. |
 | Login succeeds at Duo but the shell drops with "Login is offline / Noeud de connexion est hors-ligne" (esp. Narval) | One of several gates **beyond** Duo | Check, in order: (1) a cluster outage at status.alliancecan.ca; (2) the **CCDB access agreement** for that cluster at ccdb.alliancecan.ca/me/access_systems (independent of MFA — every new user must accept it once); (3) a single bad login node (the hostname is round-robin DNS — try `cluster1/2/3` individually). |
 | `module load … | tail` then "module not loaded" | The pipe runs the Lmod shell function in a **subshell**, so the load doesn't persist | Don't pipe `module load`. Use redirects (`>/dev/null 2>&1`) or none, then check `module list`. Also: for `srun`, **omit** `--partition` and let account+gres route; `sbatch` accepts the partition fine. |
