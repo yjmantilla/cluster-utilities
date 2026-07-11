@@ -40,9 +40,9 @@ else
   exit 1
 fi
 
-echo "effective auth settings:"
-sshd -T | grep -E '^(passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication)' \
-  | sed 's/^/  /'
+echo "verifying — the server should now offer only 'publickey':"
+ssh -o PreferredAuthentications=none -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new \
+  localhost true 2>&1 | grep -i "permission denied" | sed 's/^/  /' || true
 
 cat <<'MSG'
 
