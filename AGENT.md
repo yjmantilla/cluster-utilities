@@ -46,6 +46,9 @@ The agent should print, and you should sanity-check: **account · partition/GPU 
 ### A.5 Report faithfully
 If a job fails, say so with the output. If a step was skipped, say it. Don't claim a result is "validated" or "done" unless the evidence is in hand. (If you write up results, prefer cautious language — "preliminary", "in this configuration", "suggests" — over absolute claims.)
 
+### A.6 Reach the cluster only through `cluster-run`
+Never call the cluster with a bare `ssh` from an agent. A fresh connection triggers Duo MFA, which an agent can't answer, so a bare `ssh` **hangs**. Route every cluster call through `bin/cluster-run <host> <cmd>` (invoke by full path): it reuses the shared SSH master, and if the master is down it exits **42** with a "needs MFA refresh" message instead of hanging. On exit 42, **stop and tell the user** — they refresh from their phone (`bin/cluster-login <host>` + approve Duo); do **not** retry in a loop. Full setup: `mobile-access.md`.
+
 ---
 
 ## Part B — Alliance cluster workflow
@@ -96,6 +99,8 @@ If a call suddenly returns `Permission denied (keyboard-interactive)`, the maste
 > **Keys:** `ssh-keygen -t ed25519`, then upload the **public** key via the CCDB portal (https://ccdb.alliancecan.ca → Manage SSH Keys), not by hand-editing `authorized_keys`. A CCDB-registered key does **not** exempt you from Duo on interactive login.
 
 > **Tip:** don't pass complex nested-quote command strings through `wsl ssh`. Write a clean `.py`/`.sh` locally, `scp` it over, and run it.
+
+> **Agents:** don't drive the cluster with bare `ssh` — route through `bin/cluster-run <host> <cmd>` (reuses the master; fails fast with exit 42 instead of hanging on Duo) and refresh with `bin/cluster-login <host>`. For a long-lived, headless setup prefer `ControlPersist yes` over a fixed timeout so the master expires only on a real disconnect. See `mobile-access.md` + rule A.6.
 
 ### B.3 Interactive work: `salloc`
 ```bash
