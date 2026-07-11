@@ -224,6 +224,29 @@ reconnect and `tmux new -A -s cluster` puts you back exactly where you were, no 
 
 ---
 
+## Sharing reports from mobile (Claude app + Remote Control)
+
+Beyond a raw shell, you can drive the workstation's **Claude Code session from the Claude app
+on your phone** via **Remote Control** — steer the agent, see its output and notifications.
+That gives a clean way to produce and share results while mobile, with no Slack/email
+integration needed:
+
+1. A Claude Code session (the agent) is running on the workstation. Connect it to the Claude
+   iPhone app with **Remote Control** (it then pushes to / receives from that session).
+2. From the phone, ask the agent for a report — e.g. *"make a shareable report of the current
+   results."* The agent publishes an **Artifact**: a self-contained web page hosted on
+   claude.ai (charts/tables inlined; **default private**).
+3. The artifact link renders in the app. **Tap it**, then use the artifact's **Share** to open
+   it to collaborators — or paste that link into Slack / email / anywhere.
+
+Notes:
+- Default-private — nothing is shared until you toggle it. The agent can update the **same
+  link** in place as new results land.
+- Charts render offline (inline SVG / embedded PNGs) — the artifact CSP blocks CDNs, so
+  everything is self-contained.
+- If you're in **Termius** (plain SSH) rather than the app, a CLI-produced artifact still
+  prints a URL you can copy, open in the phone browser, and share the same way.
+
 ## Do you even need Termius and Tailscale?
 
 For the pure refresh button, not strictly — it depends on where you are and how much typing
