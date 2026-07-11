@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Harden the workstation's sshd to KEY-ONLY auth (disable password + keyboard-interactive).
+#
+# Safe by construction: it validates the new config with `sshd -t` and only then RELOADS
+# (reload does NOT drop your live session); if validation fails it removes the drop-in and
+# exits, so a bad config can't lock you out. Idempotent — rerunning just rewrites the file.
+#
+# Run it by full path (it self-elevates with sudo):
+#   ~/code/cluster-utilities/bin/harden-sshd-keyonly
+#
+# !! Before closing your session, open a SECOND SSH connection and confirm key login still
+#    works. To revert:  sudo rm /etc/ssh/sshd_config.d/00-harden.conf && sudo systemctl reload sshd
+set -euo pipefail
+
+# self-elevate to root (one password prompt for the whole script)
+if [ "$(id -u)" -ne 0 ]; then
+  exec sudo -- "$0" "$@"
+fi
+
+drop=/etc/ssh/sshd_config.d/00-harden.conf
+# 00- so it is read FIRST: sshd uses the FIRST value of each keyword, so this wins over the
+# distro drop-ins (and requires the main config's `Include /etc/ssh/sshd_config.d/*.conf`).
+cat > "$drop" <<'EOF'
+# key-only SSH (phone->workstation / cluster-run setup) — see cluster-utilities/mobile-access.md
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+EOF
+chmod 644 "$drop"
+echo "wrote $drop:"
+sed 's/^/  /' "$drop"
+
+# validate BEFORE applying; reload only if valid (keeps existing sessions alive)
+if sshd -t; then
+  systemctl reload sshd
+  echo "RELOADED OK"
+else
+  echo "sshd -t FAILED — not reloading; removing the drop-in." >&2
+  rm -f "$drop"
+  exit 1
+fi
+
+echo "effective auth settings:"
+sshd -T | grep -E '^(passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication)' \
+  | sed 's/^/  /'
+
+cat <<'MSG'
+
+Done — now open a SECOND connection and confirm key login still works before closing this one.
+MSG

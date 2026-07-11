@@ -180,6 +180,9 @@ Install **Tailscale** (sign in, confirm the workstation appears), **Termius**, a
 3. Termius host: **Address** = the MagicDNS name `<workstation>` (or the `100.x.y.z` tailnet
    IP if the name won't resolve), **User** = `<you>`, **Key** = the one you generated. Set
    **Keep-Alive** ≈ 30–60 s.
+4. Optional, **once key login works** — go key-only: run `<repo>/bin/harden-sshd-keyonly`
+   (self-elevates; disables password auth, validates config, and reloads without dropping
+   your session). Confirm a second connection still logs in before closing the first.
 
 ### 4. Shared master + helper scripts
 Add the `Host *` ControlMaster block (above) plus per-cluster aliases to `~/.ssh/config`:
