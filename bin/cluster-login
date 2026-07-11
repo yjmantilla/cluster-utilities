@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# (Re)open the shared SSH ControlMaster to a cluster — the "MFA refresh button".
+#
+# Run this from your phone (Termius -> workstation) whenever agents report the master is
+# down (cluster-run exit 42). It clears any dead socket, opens a fresh login (approve the
+# Duo push when it appears), and leaves the master alive in the background for the agents.
+#
+# Requires (in ~/.ssh/config): ControlMaster auto + ControlPath + ControlPersist yes.
+#
+#   cluster-login fir
+#   cluster-login trillium
+set -euo pipefail
+host="${1:-fir}"
+
+ssh -O exit "$host" 2>/dev/null || true       # clear any stale/dead master socket
+echo "opening master to '$host' — approve the Duo push on your phone..."
+ssh -t "$host" true                            # -t = PTY so the Duo prompt works; then exits
+ssh -O check "$host"                           # confirm: "Master running (pid=...)"

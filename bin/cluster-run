@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Agent-facing cluster runner. Reuse the shared SSH ControlMaster; NEVER prompt.
+#
+# If the master is up, the command runs instantly over the shared socket (no MFA). If the
+# master is DOWN, fail fast with exit 42 + a clear message (and an optional phone ping) so a
+# headless agent REPORTS "MFA refresh needed" instead of hanging on a Duo prompt it cannot
+# answer. Refresh the master from your phone with `cluster-login <host>`.
+#
+# Requires (in ~/.ssh/config): ControlMaster auto + ControlPath + ControlPersist yes.
+#
+#   cluster-run fir squeue --me
+#   cluster-run trillium sbatch --export=ALL job.sbatch
+#
+# Env:
+#   NTFY_TOPIC   if set, POST to https://ntfy.sh/$NTFY_TOPIC when the master is down
+set -euo pipefail
+
+if [ $# -lt 2 ]; then
+  echo "usage: cluster-run <host> <command...>" >&2
+  exit 2
+fi
+host="$1"; shift
+
+if ! ssh -O check "$host" 2>/dev/null; then
+  msg="cluster-run: SSH master for '$host' is DOWN — needs an MFA refresh from the phone."
+  echo "$msg" >&2
+  echo "  on the workstation:  cluster-login $host   (then approve the Duo push)" >&2
+  if [ -n "${NTFY_TOPIC:-}" ]; then
+    curl -s -d "$msg" "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null 2>&1 || true
+  fi
+  exit 42
+fi
+
+exec ssh -o BatchMode=yes "$host" "$@"
