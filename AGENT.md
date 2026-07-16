@@ -18,6 +18,25 @@
 
 ---
 
+## Setup — put the `bin/` helpers on your PATH
+
+The two helper scripts (`cluster-login`, `cluster-run`) live in this repo's `bin/`. You can always call them by full path (`bin/cluster-run …`, as the rules below do), but it's more convenient to make them callable by bare name.
+
+**Recommended — symlink the two scripts into a dir already on your PATH** (e.g. `~/.local/bin`):
+```bash
+ln -s "$PWD/bin/cluster-login" ~/.local/bin/cluster-login
+ln -s "$PWD/bin/cluster-run"   ~/.local/bin/cluster-run
+```
+Symlinks (not copies) mean edits to the scripts and `git pull`s are picked up automatically, and only these two tools are exposed — not everything in `bin/`. Ensure the target dir is on your PATH: fish `fish_add_path ~/.local/bin`; bash/zsh add `export PATH="$HOME/.local/bin:$PATH"` to your rc file.
+
+**Alternative — put the whole `bin/` on your PATH:** fish `fish_add_path "$PWD/bin"`; bash/zsh `export PATH="$PWD/bin:$PATH"` in your rc.
+
+A **new** shell picks them up immediately; in an **already-open** shell run `rehash` (fish/zsh) or `hash -r` (bash) once. Undo: `rm ~/.local/bin/cluster-login ~/.local/bin/cluster-run`.
+
+> Once they're on your PATH, drop the `bin/` prefix everywhere in this guide — `bin/cluster-run <host> <cmd>` becomes just `cluster-run <host> <cmd>`.
+
+---
+
 ## Part A — Operating rules for a coding agent on the cluster
 
 Generic, safe-automation rules. These keep an agent from doing something expensive or destructive without you in the loop. Good defaults for any HPC project.
