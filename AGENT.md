@@ -13,7 +13,7 @@
 1. **Never run compute on a login node.** Login nodes are for editing, `git`, `squeue`/`sbatch`/`sacct`, `rsync`, and small `ls`/`cat` only. Everything heavier (`pip install`, `pytest`, `import jax/torch/mne`, any fit/training/preprocessing) goes inside `salloc` (interactive) or `sbatch` (batch).
 2. **From Windows, drive the cluster through WSL, not git-bash.** WSL `ssh` supports connection multiplexing (ControlMaster) so you authenticate Duo once and reuse the socket. (On macOS/Linux, native `ssh` multiplexing works directly.)
 3. **Compute on the cluster, analyse on your laptop.** `rsync` results back and run plotting/aggregation locally — never on a login node.
-4. **Smoke-test cheap before you spend big.** Run one representative job, check it with `seff`, then launch the array. Gate expensive jobs behind a passing smoke test.
+4. **Smoke-test cheap before you spend big.** Run one representative job, check it with `seff`, then scale. Use the smoke run to choose the *shape* too — array vs serial loop vs within-node parallel (B.4) — not just to prove the code runs. Gate expensive jobs behind a passing smoke test.
 5. **Nothing irreversible without a human yes.** Show the exact command before any `sbatch`, `git push`, or file deletion, and wait for approval.
 
 ---
@@ -134,7 +134,7 @@ exit                      # release the allocation ASAP
 ```
 
 ### B.4 Batch work: `sbatch`
-Long jobs always go through `sbatch`, never `salloc` + manual run. Prefer **array jobs** — independent tasks, easy reruns, cleaner logs, better scheduling.
+Long jobs always go through `sbatch`, never `salloc` + manual run. **Array jobs are a good default for independent, *long-running* tasks** — easy reruns, cleaner logs, better scheduling — but they are not automatically the right shape. Pick the shape before you scale (see below).
 
 Header cheat sheet:
 ```bash
@@ -147,7 +147,7 @@ Header cheat sheet:
 #SBATCH --gres=gpu:h100:1             # only when GPU-bound
 #SBATCH --output=logs/%x-%A_%a.out
 #SBATCH --error=logs/%x-%A_%a.err
-#SBATCH --array=0-99%20               # arrays >> monolithic loops; %20 caps concurrent tasks
+#SBATCH --array=0-99%20               # %20 caps concurrent tasks (see shape guidance below)
 ```
 
 Chain stages with dependencies — gate arrays behind a smoke test so a broken env fails cheap:
@@ -156,6 +156,26 @@ SMOKE=$(sbatch --parsable submit_smoke.sh)
 JOB=$(sbatch --parsable --dependency=afterok:$SMOKE submit_array.sh)
 ```
 `afterok` = run only if the parent succeeded; `afterany` = run regardless; `--parsable` = print just the job id.
+
+**Choose the shape: array, serial loop, or within-node parallel.** An array is *not* automatically fastest. Every array task re-pays the full startup cost — queue wait, node allocation, `module load`, venv activation, interpreter start, heavy imports (`torch`/`jax`/`mne`), model/dataset load, cache warm. When that overhead is comparable to the actual per-item work, an array of many small tasks is **slower and more expensive** than one job looping serially.
+
+Measure two numbers in the smoke run, then pick:
+
+| Per-item compute `T_item` vs startup `T_start` | Best shape | Why |
+|---|---|---|
+| `T_item ≫ T_start` (~10×+) | **Array**, one item per task | Overhead amortizes; spreads across nodes; independent retries |
+| `T_item ≲ T_start` | **One job, serial loop** (or chunked array) | Pay setup once instead of N× re-import and N× queue waits |
+| Many short items, fits one node | **Within-node parallel** (`joblib`/`multiprocessing`/GNU `parallel`) | Setup once, then saturate all `--cpus-per-task` cores |
+
+**Chunking is the usual middle ground** — an array whose tasks each loop over a slice, so you get parallelism *and* amortized setup:
+```bash
+#SBATCH --array=0-9                   # 10 tasks × 50 items = 500 items
+python run.py --shard "$SLURM_ARRAY_TASK_ID" --num-shards 10
+```
+
+Other pulls away from one-item-per-task arrays: **shared warm state** (load a big model/dataset once per job, not once per task — also avoids concurrent-write races on a shared cache); **GPU packing** (a whole H100 per tiny task badly under-uses a measured allocation — see B.6); **fairshare** (thousands of tiny tasks cost scheduling overhead and queue time).
+
+> Smoke-test the **shape**, not just the code. Run one representative item and `seff` it — if `Elapsed` is dominated by startup rather than compute, restructure *before* launching the array.
 
 ### B.5 Right-size resources (don't guess)
 Run **one** representative job, then:
@@ -242,6 +262,7 @@ Never delete shared files without checking ownership and the project README. Arc
 | `pip install jax[cuda12]` "downgrades" JAX and you end up CPU-only | JAX CUDA wheels are **Linux-only**; there's no native-Windows GPU wheel, so pip strips the extra | Don't install the cuda extra in a native Windows venv. Use WSL2 (Linux), or the cluster. Cluster GPU install pattern: `pip install -e ".[gpu]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html`. On WSL2, install the **Windows** NVIDIA driver only — never a Linux display driver inside WSL. |
 | HuggingFace / wget download fails inside a batch job | Compute nodes may not have internet — depends on the cluster (see B.8) | Test first: `sbatch --wrap="curl -s https://example.com && echo OK || echo FAIL" ...`. On **fir**, compute nodes have internet and downloads work fine in batch jobs. On older clusters (Cedar/Graham/Beluga), use the login node or a DTN. |
 | Download job uses 8 CPUs, 32G, GPU account — queues for hours | Downloading is I/O-bound; over-requesting burns fairshare and delays scheduling | Use `--cpus-per-task=2 --mem=8G --account=def-<lab>` (CPU account). See B.8 download job template. |
+| Launched a big **array job**, then had to cancel it — a plain serial `for` loop was the better call | Per-task startup (queue wait, `module load`, venv, heavy imports, model/data load) dominated the small per-item compute, so the array paid that cost **N×** instead of once | Compare per-item compute against per-task startup in a smoke run **before** choosing the shape (B.4). When startup ≳ per-item work, use a serial loop, within-node parallelism, or a **chunked** array (`--array=0-9`, 50 items each) rather than one task per item. |
 | WSL2 GPU won't attach: `cuInit failed: CUDA error 100` / "GPU access blocked by the operating system" | Host-level GPU-partitioning (GPU-P) hiccup — Hyper-V can't hand the GPU to the WSL VM (common on laptop dGPUs) | A full **Windows reboot** re-enrolls GPU-P. Beware: `wsl --shutdown` can make it worse and may need `gpuSupport=false` in `%USERPROFILE%\.wslconfig` just to boot WSL. For serious GPU work, use the cluster. |
 | Login succeeds at Duo but the shell drops with "Login is offline / Noeud de connexion est hors-ligne" (esp. Narval) | One of several gates **beyond** Duo | Check, in order: (1) a cluster outage at status.alliancecan.ca; (2) the **CCDB access agreement** for that cluster at ccdb.alliancecan.ca/me/access_systems (independent of MFA — every new user must accept it once); (3) a single bad login node (the hostname is round-robin DNS — try `cluster1/2/3` individually). |
 | `module load … | tail` then "module not loaded" | The pipe runs the Lmod shell function in a **subshell**, so the load doesn't persist | Don't pipe `module load`. Use redirects (`>/dev/null 2>&1`) or none, then check `module list`. Also: for `srun`, **omit** `--partition` and let account+gres route; `sbatch` accepts the partition fine. |
