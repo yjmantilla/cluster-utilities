@@ -117,6 +117,8 @@ If a call suddenly returns `Permission denied (keyboard-interactive)`, the maste
 
 > **Keys:** `ssh-keygen -t ed25519`, then upload the **public** key via the CCDB portal (https://ccdb.alliancecan.ca → Manage SSH Keys), not by hand-editing `authorized_keys`. A CCDB-registered key does **not** exempt you from Duo on interactive login.
 
+> **Host keys (verifying the cluster, not yourself):** on a first connect ssh asks *"authenticity of host … can't be established"* — don't just type `yes`; compare the fingerprint against an out-of-band source. Same when ssh warns `REMOTE HOST IDENTIFICATION HAS CHANGED`, which distinguishes a rebuilt login node from an interception. Published fingerprints for every Alliance cluster are clipped into **`SSH host keys.md`** in this repo; the wiki (https://docs.alliancecan.ca/wiki/SSH_host_keys) stays authoritative if a cluster rotates its keys. Check a live node without logging in (no auth, no MFA): `ssh-keyscan -t ed25519 <host> | ssh-keygen -lf -`.
+
 > **Tip:** don't pass complex nested-quote command strings through `wsl ssh`. Write a clean `.py`/`.sh` locally, `scp` it over, and run it.
 
 > **Agents:** don't drive the cluster with bare `ssh` — route through `bin/cluster-run <host> <cmd>` (reuses the master; fails fast with exit 42 instead of hanging on Duo) and refresh with `bin/cluster-login <host>`. For a long-lived, headless setup prefer `ControlPersist yes` over a fixed timeout so the master expires only on a real disconnect. See `mobile-access.md` + rule A.6.
@@ -290,6 +292,7 @@ Start small: drop the Alliance rules into your global `CLAUDE.md`, add a short p
 
 - [ ] CCDB account; confirm with your PI which allocation group + accounts you can use (`def-<lab>`, `rrg-<lab>`, `def-<lab>_gpu`).
 - [ ] Generate an SSH key (`ssh-keygen -t ed25519`); upload the **public** key via CCDB.
+- [ ] On first connect to each cluster, verify its **host-key fingerprint** against `SSH host keys.md` (repo root) before accepting — don't blind-`yes` the prompt.
 - [ ] Accept the **CCDB access agreement** for each cluster you'll use at ccdb.alliancecan.ca/me/access_systems (blocks login until done — independent of MFA).
 - [ ] Set up Duo MFA; on Windows, install **WSL2** and put the multiplexing `~/.ssh/config` (Part B.2) inside WSL with your username. Test `ssh fir`, approve Duo once.
 - [ ] Learn the storage layout (Part B.7): code in git, outputs to `/scratch`, shared data in `/project`.
