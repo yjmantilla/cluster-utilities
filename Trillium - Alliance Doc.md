@@ -82,6 +82,25 @@ The specifics of Trillium are described only briefly below; please read the [Tri
 - Password access to the login nodes is disabled. You must use [SSH Keys](https://docs.alliancecan.ca/wiki/SSH_Keys "SSH Keys") and [MFA](https://docs.alliancecan.ca/wiki/MFA "MFA").
 - There are separate login and robot nodes for CPU and GPU subclusters.
 
+### SSH access setup (this repo's `cluster-run` / `cluster-login`)
+
+`~/.ssh/config` has `Host trillium` (`HostName trillium.alliancecan.ca`) and `Host trillium-gpu`
+(`HostName trillium-gpu.alliancecan.ca`), both `User yorguin`, inheriting the shared `Host *`
+ControlMaster block — so `cluster-run trillium …`, `cluster-run trillium-gpu …`, and
+`cluster-login trillium[-gpu]` work exactly like `fir`. (`~/.ssh/config` and `~/.ssh/known_hosts`
+live outside this repo and are not versioned here.)
+
+Host-key fingerprints were verified on 2026-08-12: `ssh-keyscan` of **both** hostnames returned
+the **same** keys, matching `SSH host keys.md` in this repo (the Alliance wiki was unreachable to
+automated fetches at the time — behind bot protection — so the repo's clipped copy was the
+verification source):
+
+- ED25519 `SHA256:ZdxQWOLHPQb11qPxHh2Vq+trSULZA1+rvTU6pePelSc`
+- RSA `SHA256:7lMM6nG32IWndLfCZhrJ6a/jKcuuvvajS6XUiRclB74`
+
+Only these fingerprint-verified keys were added to `~/.ssh/known_hosts` (required because
+`cluster-run` uses `BatchMode=yes`, which fails on an unverified host key).
+
 ## Internet access
 
 - The internet cannot be reached from compute nodes.
