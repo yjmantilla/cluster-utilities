@@ -143,4 +143,38 @@ terminal and job submissions.
 
 - The resources in the CPU subcluster are scheduled by whole 192-core node.
 - The resources in the GPU subcluster are scheduled by whole GPU (no "MIG"), or by whole node.
+
+## Gotchas learned (job submission)
+
+Hard-won during the amica-benchmark iteration-ladder campaign (2026-08). These bit in sequence —
+each one hid behind the previous — so a job can fail for several of these at once.
+
+1. **Submit GPU jobs from the GPU login node.** `cluster-run trillium` lands on a *CPU* login node
+   (`tri-login01`), which the scheduler blocks from requesting GPUs:
+   `"GPU resources requested from a CPU login node; please submit from trig-login01."`
+   Use the **`trillium-gpu`** alias (`trig-login01`) for anything with `--gpus-per-node`. Both share
+   the same `/scratch`, so files/caches/venvs are visible from either — only the submit host differs.
+2. **`--export=NONE` is forced** by a site `sbatch` wrapper (`/opt/slurm/bin/sbatch --export=NONE`).
+   Your shell environment — including custom vars like `MANIFEST` — does **not** reach the job, and you
+   can't override it with `--export=ALL` (the wrapper's flag wins). Pass values as **positional args**
+   to the script (immune to env stripping) or set them *inside* the job script. `SLURM_*` vars survive.
+3. **Whole-node scheduling — no `--mem` / `--cpus-per-task` / `--ntasks`.** These are rejected
+   (`"--mem ... is not allowed nor necessary on Trillium; ... each job gets all the node's memory"`).
+   Use only `--nodes` / `--gpus-per-node` / `--time`. A CPU-only job still gets a *whole node*, so don't
+   fan a small task into a big job array (25 tasks = 25 whole nodes) — loop inside one job instead.
+4. **QOS `normal` limits: MaxSubmit=500, MaxRunning=150, MaxTRES `gpu=100`.** A >500-element array is
+   rejected with `QOSMaxSubmitJobPerUserLimit` — split into waves that each fit under 500 submitted.
+   Also **`MaxArraySize=1001`** (vs 10000 on fir): array indices must be ≤ 1000.
+5. **Read-only HOME on compute nodes.** Anything writing to `~/.cache` fails with
+   `PermissionError: [Errno 13] ... /home/<user>/.cache/...`. Redirect caches to `/scratch`:
+   `export XDG_CACHE_HOME=/scratch/$USER/.cache JAX_COMPILATION_CACHE_DIR=/scratch/$USER/.cache/jax MPLCONFIGDIR=/scratch/$USER/.cache/mpl`
+   (the amica_python JAX backend honours `JAX_COMPILATION_CACHE_DIR` before falling back to `~/.cache`).
+6. **Accounts — prefer `rrg-kjerbi` over `def-kjerbi`.** The RRG award (#5896, kif-392) carries **both**
+   `fir-compute` CPU (715 core-years, ~1.6% used — huge headroom) **and** a Trillium `grillium-gpu`
+   H100 GPU allocation. So `--account=rrg-kjerbi` is the right choice for *both* CPU and GPU here; use
+   `def-kjerbi` only as a fallback. (Naming differs by cluster: fir uses suffixed `rrg-kjerbi_cpu` /
+   `def-kjerbi_gpu`; Trillium uses the bare `rrg-kjerbi` / `def-kjerbi`.)
+7. **Module env survives `--export=NONE`.** `source /cvmfs/.../config/profile/bash.sh` + `module load`
+   inside the script works fine (the earlier failures were env/cache, not modules). For an mne-capable
+   orchestrator, also `source <venv>/bin/activate` inside the job.
 - For other scheduling specifics, please see the [Trillium Quickstart](https://docs.alliancecan.ca/wiki/Trillium_Quickstart "Trillium Quickstart").
