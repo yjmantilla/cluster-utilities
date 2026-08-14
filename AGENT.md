@@ -18,22 +18,19 @@
 
 ---
 
-## Setup — put the `bin/` helpers on your PATH
+## Setup — put `cluster-login` on your PATH
 
-The two helper scripts (`cluster-login`, `cluster-run`) live in this repo's `bin/`. You can always call them by full path (`bin/cluster-run …`, as the rules below do), but it's more convenient to make them callable by bare name.
+`cluster-login` (this repo's `bin/`) is the one helper worth installing — the "MFA refresh button" that (re)opens the shared SSH master. Agents don't need a wrapper to *reach* the cluster: they call `ssh -o BatchMode=yes <host> '<cmd>'` directly (rule A.6). (`bin/cluster-run` is **deprecated** — now just a stub that redirects you to that `ssh` form.)
 
-**Recommended — symlink the two scripts into a dir already on your PATH** (e.g. `~/.local/bin`):
+**Recommended — symlink it into a dir already on your PATH** (e.g. `~/.local/bin`):
 ```bash
 ln -s "$PWD/bin/cluster-login" ~/.local/bin/cluster-login
-ln -s "$PWD/bin/cluster-run"   ~/.local/bin/cluster-run
 ```
-Symlinks (not copies) mean edits to the scripts and `git pull`s are picked up automatically, and only these two tools are exposed — not everything in `bin/`. Ensure the target dir is on your PATH: fish `fish_add_path ~/.local/bin`; bash/zsh add `export PATH="$HOME/.local/bin:$PATH"` to your rc file.
+The symlink (not a copy) means edits to the script and `git pull`s are picked up automatically. Ensure the target dir is on your PATH: fish `fish_add_path ~/.local/bin`; bash/zsh add `export PATH="$HOME/.local/bin:$PATH"` to your rc file.
 
 **Alternative — put the whole `bin/` on your PATH:** fish `fish_add_path "$PWD/bin"`; bash/zsh `export PATH="$PWD/bin:$PATH"` in your rc.
 
-A **new** shell picks them up immediately; in an **already-open** shell run `rehash` (fish/zsh) or `hash -r` (bash) once. Undo: `rm ~/.local/bin/cluster-login ~/.local/bin/cluster-run`.
-
-> Once they're on your PATH, drop the `bin/` prefix everywhere in this guide — `bin/cluster-run <host> <cmd>` becomes just `cluster-run <host> <cmd>`.
+A **new** shell picks it up immediately; in an **already-open** shell run `rehash` (fish/zsh) or `hash -r` (bash) once. Undo: `rm ~/.local/bin/cluster-login`.
 
 ---
 
@@ -65,8 +62,14 @@ The agent should print, and you should sanity-check: **account · partition/GPU 
 ### A.5 Report faithfully
 If a job fails, say so with the output. If a step was skipped, say it. Don't claim a result is "validated" or "done" unless the evidence is in hand. (If you write up results, prefer cautious language — "preliminary", "in this configuration", "suggests" — over absolute claims.)
 
-### A.6 Reach the cluster only through `cluster-run`
-Never call the cluster with a bare `ssh` from an agent. A fresh connection triggers Duo MFA, which an agent can't answer, so a bare `ssh` **hangs**. Route every cluster call through `bin/cluster-run <host> <cmd>` (invoke by full path): it reuses the shared SSH master, and if the master is down it exits **42** with a "needs MFA refresh" message instead of hanging. On exit 42, **stop and tell the user** — they refresh from their phone (`bin/cluster-login <host>` + approve Duo); do **not** retry in a loop. Full setup: `mobile-access.md`.
+### A.6 Reach the cluster with `ssh -o BatchMode=yes`, never a bare interactive ssh
+An agent's cluster calls must **never** be able to hang on a Duo prompt no one can answer. A fresh/interactive `ssh` triggers Duo MFA and **hangs**; `-o BatchMode=yes` makes ssh **fail fast** instead:
+```bash
+ssh -o BatchMode=yes <host> '<cmd>'
+```
+Master up → it reuses the shared SSH socket and runs instantly, no MFA. Master down → it exits immediately with `Permission denied (...keyboard-interactive)` rather than blocking. On that failure, **stop and tell the user** — they refresh from their phone (`cluster-login <host>` + approve Duo); do **not** retry in a loop. Full setup: `mobile-access.md`.
+
+> `bin/cluster-run` is **deprecated**. It wrapped exactly this (`ssh -O check` + `BatchMode=yes`, exit 42 on master-down), but the wrapper's semantics tripped up agents — use the plain `ssh -o BatchMode=yes` form above. The script is now a stub that just prints the equivalent command.
 
 ---
 
@@ -121,7 +124,7 @@ If a call suddenly returns `Permission denied (keyboard-interactive)`, the maste
 
 > **Tip:** don't pass complex nested-quote command strings through `wsl ssh`. Write a clean `.py`/`.sh` locally, `scp` it over, and run it.
 
-> **Agents:** don't drive the cluster with bare `ssh` — route through `bin/cluster-run <host> <cmd>` (reuses the master; fails fast with exit 42 instead of hanging on Duo) and refresh with `bin/cluster-login <host>`. For a long-lived, headless setup prefer `ControlPersist yes` over a fixed timeout so the master expires only on a real disconnect. See `mobile-access.md` + rule A.6.
+> **Agents:** drive the cluster with `ssh -o BatchMode=yes <host> <cmd>` — it reuses the master and fails fast (`Permission denied`) instead of hanging on Duo when the master is down; refresh with `cluster-login <host>`. (`cluster-run` is deprecated — see A.6.) For a long-lived, headless setup prefer `ControlPersist yes` over a fixed timeout so the master expires only on a real disconnect. See `mobile-access.md` + rule A.6.
 
 ### B.3 Interactive work: `salloc`
 ```bash

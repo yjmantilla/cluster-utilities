@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # (Re)open the shared SSH ControlMaster to a cluster — the "MFA refresh button".
 #
-# Run this from your phone (Termius -> workstation) whenever agents report the master is
-# down (cluster-run exit 42). It clears any dead socket, opens a fresh login (approve the
+# Run this from your phone (Termius -> workstation) whenever an agent reports the master is
+# down (a `ssh -o BatchMode=yes <host>` call failed with "Permission denied"). It clears any
+# dead socket, opens a fresh login (approve the
 # Duo push when it appears), and leaves the master alive in the background for the agents.
 #
 # Requires (in ~/.ssh/config): ControlMaster auto + ControlPath + ControlPersist yes.

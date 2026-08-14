@@ -32,8 +32,8 @@ automate it away. So the goal is to make that tap **rare and phone-doable**, not
 
 ## TL;DR
 
-1. **Workstation:** SSH on, Tailscale up, a long-lived shared master. The two helper scripts
-   stay in this repo's `bin/` and are called by full path (no install).
+1. **Workstation:** SSH on, Tailscale up, a long-lived shared master. `cluster-login` lives in
+   this repo's `bin/` (put it on your PATH, or call by full path).
    ```bash
    sudo systemctl enable --now sshd
    sudo pacman -S --needed tailscale tmux
@@ -41,19 +41,21 @@ automate it away. So the goal is to make that tap **rare and phone-doable**, not
    ```
    Add the ControlMaster block to `~/.ssh/config` (§ "One-time setup" step 4).
 2. **Phone:** **Termius**, **Tailscale** (same account), **Duo Mobile** (already installed).
-3. **Agents** call `cluster-run <host> <cmd>` (never bare `ssh`). On master-down they exit 42
-   and say so — optionally buzzing your phone via ntfy.
+3. **Agents** call `ssh -o BatchMode=yes <host> <cmd>` (never a bare interactive `ssh`). On
+   master-down BatchMode makes it fail fast (`Permission denied`) instead of hanging; the agent
+   reports that to whoever's driving it.
 4. **Refresh:** phone → Termius → workstation → `cluster-login <host>` → approve the Duo push.
 
 ---
 
 ## Primary use case: keeping headless agents authenticated
 
-> **Invoking the helpers.** `cluster-run` and `cluster-login` live in this repo's `bin/`. Call
-> them by their **full path** — e.g. `~/code/cluster-utilities/bin/cluster-login fir` — no
-> install and no `PATH` change needed. Below, `<repo>` is your cluster-utilities checkout
-> (e.g. `~/code/cluster-utilities`); the short names `cluster-run`/`cluster-login` are
-> shorthand for `<repo>/bin/cluster-run` etc.
+> **Invoking `cluster-login`.** It lives in this repo's `bin/`. Put it on your PATH (see
+> AGENT.md "Setup") or call it by **full path** — e.g. `~/code/cluster-utilities/bin/cluster-login fir`.
+> Below, `<repo>` is your cluster-utilities checkout (e.g. `~/code/cluster-utilities`) and the
+> short name `cluster-login` is shorthand for `<repo>/bin/cluster-login`. Agents reach the
+> cluster with a direct `ssh -o BatchMode=yes <host> <cmd>` — no wrapper (`cluster-run` is
+> deprecated).
 
 ### The three pieces
 
@@ -69,19 +71,20 @@ Host *
 The master now survives your logout and idle time; it only truly dies on a real
 disconnect or a login-node reset — which is the only time a re-tap is needed.
 
-**2. Agents call a wrapper that never hangs** — `cluster-run` (in this repo's `bin/`):
+**2. Agents call ssh directly, with BatchMode so it never hangs.**
 ```bash
-cluster-run fir squeue --me
-cluster-run trillium sbatch --export=ALL job.sbatch
+ssh -o BatchMode=yes fir squeue --me
+ssh -o BatchMode=yes trillium sbatch --export=ALL job.sbatch
 ```
-Master up → runs instantly over the shared socket, no MFA. Master down → **exit 42** with a
-clear message (and an optional phone ping), so the agent *reports* the problem instead of
-freezing on an un-answerable Duo prompt. Internally it does `ssh -O check` then
-`ssh -o BatchMode=yes` (BatchMode = never prompt).
+Master up → runs instantly over the shared socket, no MFA. Master down → `-o BatchMode=yes`
+makes ssh **fail immediately** with `Permission denied (...keyboard-interactive)` instead of
+freezing on an un-answerable Duo prompt, so the agent can *report* the problem (BatchMode =
+never prompt).
 
-> Tell your agents — via their project/`CLAUDE.md` rules — to use `cluster-run` for **every**
-> cluster call and to **stop and notify you on exit 42**, not retry. This does not change the
-> usual rule of showing the exact command before any `sbatch`/`git push`.
+> Tell your agents — via their project/`CLAUDE.md` rules — to use `ssh -o BatchMode=yes` for
+> **every** cluster call and to **stop and notify you** when it fails that way, not retry. This
+> does not change the usual rule of showing the exact command before any `sbatch`/`git push`.
+> (The old `cluster-run` wrapper is deprecated — see AGENT.md A.6.)
 
 **3. The phone refresh button** — `cluster-login` (in this repo's `bin/`):
 ```bash
@@ -94,17 +97,24 @@ then approve the push in Duo Mobile.
 
 ### Optional: get pinged instead of polling
 
-So you don't have to guess when to refresh, set `NTFY_TOPIC` in the agents' environment and
-install the [ntfy](https://ntfy.sh) app on the phone (subscribe to the same private topic).
-`cluster-run` then POSTs its "master is DOWN — needs an MFA refresh" message on master-down;
-your phone buzzes → open Termius → `cluster-login <host>` → tap Duo. That's the whole loop.
+The deprecated `cluster-run` used to POST a "master is DOWN — needs an MFA refresh" message to
+[ntfy](https://ntfy.sh) on failure; a plain `ssh -o BatchMode=yes` doesn't. Two ways to keep a
+phone alert:
+- **Let the agent do it.** It already detects the `Permission denied` failure — have its rules
+  surface it (a Remote Control notification, or a one-line `curl -d "master down" ntfy.sh/<topic>`).
+- **Wrap the call** in a tiny local helper that runs `ssh -o BatchMode=yes "$@"` and, on
+  non-zero exit, curls ntfy — a 3-line function that brings the old auto-ping back without the
+  rest of the wrapper.
+
+Then: install the ntfy app on the phone (subscribe to the same private topic) → phone buzzes →
+open Termius → `cluster-login <host>` → tap Duo. That's the whole loop.
 
 ### The refresh loop, end to end
 
 ```
-agent: cluster-run fir squeue        # master died → exit 42 → (ntfy buzzes your phone)
+agent: ssh -o BatchMode=yes fir squeue   # master died → Permission denied → agent reports it
 you:   Termius → <workstation> → cluster-login fir → approve Duo push → "Master running"
-agent: cluster-run fir squeue        # back on the shared socket, no MFA — resumes
+agent: ssh -o BatchMode=yes fir squeue   # back on the shared socket, no MFA — resumes
 ```
 
 ---
@@ -143,7 +153,7 @@ Approve) → app-switch back. The connection **holds and waits** while you're in
 | **openssh (`sshd`)** | The door — lets the phone open a shell on the workstation. | **Yes** |
 | **tailscale** | Private mesh VPN so the phone reaches the workstation over cellular with no port-forwarding, nothing public. The one thing Termius can't do itself. | **Yes** (off home Wi-Fi) |
 | **tmux** | Persistent sessions for any hands-on work (survives phone disconnects). | Recommended |
-| `cluster-run` / `cluster-login` | The agent wrapper + refresh button (this repo's `bin/`). | **Yes** |
+| `cluster-login` | The MFA refresh button (this repo's `bin/`). Agents reach the cluster with direct `ssh -o BatchMode=yes`; `cluster-run` is deprecated. | **Yes** |
 | mosh | Seamless phone↔workstation reconnect. Needs a client that supports it (Blink, not Termius). | Optional |
 
 ### On the phone
@@ -289,8 +299,8 @@ The phone *publishes* to that topic (ntfy app button or an iOS Shortcut) → wor
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Agent hangs on a cluster call | Bare `ssh` hit a Duo prompt with no one to answer | Route all agent calls through `cluster-run` (BatchMode + fail-fast). |
-| `cluster-run` exits 42 | The shared master is down | From the phone: `cluster-login <host>`, approve Duo. |
+| Agent hangs on a cluster call | A bare/interactive `ssh` hit a Duo prompt with no one to answer | Always add `-o BatchMode=yes` to agent ssh calls (never prompts → fails fast). |
+| Agent's `ssh` fails `Permission denied (...keyboard-interactive)` | The shared master is down | From the phone: `cluster-login <host>`, approve Duo, then re-run. |
 | `ssh: Could not resolve hostname trillium` | No alias / bare name isn't DNS | Use the FQDN, or add the `Host` block (§4). |
 | Termius can't reach the workstation off home Wi-Fi | No VPN; LAN IP only routes on the LAN | Both devices on Tailscale, same account; check `tailscale status`. |
 | Termius won't resolve `<workstation>` MagicDNS name | App not using the tailnet resolver | Use the `100.x.y.z` tailnet IP from `tailscale status`. |

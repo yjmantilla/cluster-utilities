@@ -21,7 +21,7 @@ drop=/etc/ssh/sshd_config.d/00-harden.conf
 # 00- so it is read FIRST: sshd uses the FIRST value of each keyword, so this wins over the
 # distro drop-ins (and requires the main config's `Include /etc/ssh/sshd_config.d/*.conf`).
 cat > "$drop" <<'EOF'
-# key-only SSH (phone->workstation / cluster-run setup) — see cluster-utilities/mobile-access.md
+# key-only SSH (phone->workstation / headless-agent setup) — see cluster-utilities/mobile-access.md
 PubkeyAuthentication yes
 PasswordAuthentication no
 KbdInteractiveAuthentication no

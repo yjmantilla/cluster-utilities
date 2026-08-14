@@ -1,34 +1,27 @@
 #!/usr/bin/env bash
-# Agent-facing cluster runner. Reuse the shared SSH ControlMaster; NEVER prompt.
+# DEPRECATED — cluster-run has been retired (proved unreliable; agents mishandled its
+# exit-42 / master-check semantics). Call ssh directly instead.
 #
-# If the master is up, the command runs instantly over the shared socket (no MFA). If the
-# master is DOWN, fail fast with exit 42 + a clear message (and an optional phone ping) so a
-# headless agent REPORTS "MFA refresh needed" instead of hanging on a Duo prompt it cannot
-# answer. Refresh the master from your phone with `cluster-login <host>`.
+# The shared ControlMaster (opened by `cluster-login`) means a plain ssh reuses the socket
+# with no Duo. Add `-o BatchMode=yes` so it FAILS FAST instead of hanging on a Duo prompt
+# when the master is down:
 #
-# Requires (in ~/.ssh/config): ControlMaster auto + ControlPath + ControlPersist yes.
+#   OLD:  cluster-run <host> <cmd...>
+#   NEW:  ssh -o BatchMode=yes <host> <cmd...>
 #
-#   cluster-run fir squeue --me
-#   cluster-run trillium sbatch --export=ALL job.sbatch
+# On "Permission denied (...keyboard-interactive)" the master is down — refresh it with
+# `cluster-login <host>` (approve the Duo push), then re-run the ssh.
 #
-# Env:
-#   NTFY_TOPIC   if set, POST to https://ntfy.sh/$NTFY_TOPIC when the master is down
+# This stub only prints the equivalent command and exits non-zero; it never connects.
 set -euo pipefail
 
-if [ $# -lt 2 ]; then
-  echo "usage: cluster-run <host> <command...>" >&2
-  exit 2
+echo "cluster-run is DEPRECATED — do not use it." >&2
+if [ $# -ge 2 ]; then
+  host="$1"; shift
+  echo "Run this instead:" >&2
+  echo "  ssh -o BatchMode=yes $host $*" >&2
+else
+  echo "Run instead:  ssh -o BatchMode=yes <host> <cmd...>" >&2
 fi
-host="$1"; shift
-
-if ! ssh -O check "$host" 2>/dev/null; then
-  msg="cluster-run: SSH master for '$host' is DOWN — needs an MFA refresh from the phone."
-  echo "$msg" >&2
-  echo "  on the workstation:  cluster-login $host   (then approve the Duo push)" >&2
-  if [ -n "${NTFY_TOPIC:-}" ]; then
-    curl -s -d "$msg" "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null 2>&1 || true
-  fi
-  exit 42
-fi
-
-exec ssh -o BatchMode=yes "$host" "$@"
+echo "If it fails with 'Permission denied', the master is down — refresh: cluster-login <host>" >&2
+exit 64
