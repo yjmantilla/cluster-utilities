@@ -149,7 +149,7 @@ terminal and job submissions.
 Hard-won during the amica-benchmark iteration-ladder campaign (2026-08). These bit in sequence —
 each one hid behind the previous — so a job can fail for several of these at once.
 
-1. **Submit GPU jobs from the GPU login node.** `cluster-run trillium` lands on a *CPU* login node
+1. **Submit GPU jobs from the GPU login node.** `ssh -o BatchMode=yes trillium` lands on a *CPU* login node
    (`tri-login01`), which the scheduler blocks from requesting GPUs:
    `"GPU resources requested from a CPU login node; please submit from trig-login01."`
    Use the **`trillium-gpu`** alias (`trig-login01`) for anything with `--gpus-per-node`. Both share
