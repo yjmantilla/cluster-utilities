@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Is it the cluster, or is it me? — a fast triage before blaming ssh.
+#
+# When `ssh -o BatchMode=yes <host>` fails or a job vanishes, run this to distinguish:
+#   - MY auth/master expired      -> run `cluster-login <host>` (Duo).
+#   - the cluster has an incident  -> check the Alliance status page (printed below).
+#   - the login node is just slow  -> the reachability probe will hang/timeout.
+#
+# It does NOT scrape the (JS-rendered) status page — that has no stable JSON API — it just
+# checks your live access and hands you the URL. Alliance status: https://status.alliancecan.ca/
+#
+#   cluster-status            # checks the usual hosts
+#   cluster-status fir        # one host
+set -uo pipefail
+
+STATUS_URL="https://status.alliancecan.ca/"
+hosts=("$@"); [ ${#hosts[@]} -eq 0 ] && hosts=(fir trillium trillium-gpu)
+
+probe() {
+  local h="$1" master reach
+  if ssh -O check "$h" >/dev/null 2>&1; then master="master UP"; else master="master DOWN"; fi
+  if timeout 15 ssh -o BatchMode=yes -o ConnectTimeout=10 "$h" 'echo ok' 2>/dev/null | grep -q ok; then
+    reach="reachable"
+  else
+    reach="NOT reachable (auth expired -> cluster-login $h, or login node down/slow)"
+  fi
+  printf '  %-14s %-12s %s\n' "$h" "$master" "$reach"
+}
+
+echo "SSH reachability (your access, right now):"
+for h in "${hosts[@]}"; do probe "$h"; done
+echo
+echo "Cluster incidents / maintenance (open in a browser — the page is JS-rendered):"
+echo "  $STATUS_URL"

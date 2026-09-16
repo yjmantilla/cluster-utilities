@@ -22,6 +22,8 @@
 
 `cluster-login` (this repo's `bin/`) is the one helper worth installing — the "MFA refresh button" that (re)opens the shared SSH master. Agents don't need a wrapper to *reach* the cluster: they call `ssh -o BatchMode=yes <host> '<cmd>'` directly (rule A.6). (`bin/cluster-run` is **deprecated** — now just a stub that redirects you to that `ssh` form.)
 
+When `ssh -o BatchMode=yes <host>` fails or a job vanishes, run **`cluster-status [host …]`** (`bin/`) FIRST — it probes each host's master + live reachability so you can tell *your* auth expired (→ `cluster-login <host>`) from *the cluster* being down/slow, and prints the Alliance status URL (https://status.alliancecan.ca/, JS-rendered, no stable JSON API) for incidents/maintenance. e.g. it distinguishes a working `trillium` login node from a down `trillium-gpu` one.
+
 **Recommended — symlink it into a dir already on your PATH** (e.g. `~/.local/bin`):
 ```bash
 ln -s "$PWD/bin/cluster-login" ~/.local/bin/cluster-login
