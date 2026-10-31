@@ -44,7 +44,7 @@ hosts:
     ssh: lab6
     tailscale: lkj006-psy
     ip: 100.124.175.38
-    role: research
+    role: research — gica (Python port of the gICA EEG pipeline + microstates; low priority), since 2026-10-31. LEMON raw data in ~/datasets/lemon. gh not logged in; no git-annex or rclone
     spec: Xeon E3-1240 v5 (8 threads), 32 GB RAM, Quadro K620, 494 GB /home, CachyOS
     auth: key+password
     roots: ~/Projects
