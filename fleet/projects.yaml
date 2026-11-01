@@ -23,6 +23,9 @@ projects:
 
   # --- laptop: desktop, personal, needs a display/GPU ---
   linux-config: [laptop]
+  nvidia-laptop-power-cfg: [laptop]  # 2026-10-31: third-party (gitlab asus-linux), laptop-only GPU power tool
+  waydroid_script: [laptop]  # 2026-10-31: third-party (casualsnek), laptop-only; 1 local change in tools/helper.py
+  schnelle-umlaute: [laptop]  # 2026-10-31: third-party (Maik-0000FF), laptop-only typing tool
   kirby: [laptop]  # dev on the laptop (katam = private yjmantilla/kirby-online; personal-files branch in git-annex). The co-op servers (coop/coop2.yorguin.foo: systemd user units coop{,2}-relay + coop{,2}-tunnel) run on lab10 from ~/kirby-private (not a repo; moved from lab8 2026-10-26; saves snapshotted into personal-files). Deploy with LAB=lab10 / --lab lab10 (the laptop's `lab` alias is lab8)
   os-debug: [*]  # since 2026-10-27: private yjmantilla/os-debug, cloned on every host; notes/YYYY-MM-DD-<host>-<topic>.md; transcripts collected on lab10 (git-annex, Drive only) with collect-transcripts.sh. Old os-debugs folders (laptop, lab8) replaced by clones
 
@@ -77,3 +80,7 @@ projects:
   coco-pipe: [lab4]  # 2026-10-31: BabaSanfour/coco-pipe (write access), library used by eeg-analysis-adhd-epilepsy; next to neurodags
   galleria: [lab6]  # 2026-10-31: private protein spreadsheet pipeline (UdeA); results/ from the laptop copied in (ignored)
   yjmantilla.github.io: [lab10]  # 2026-10-31: personal website
+  odyssey: [lab3]  # 2026-10-31 from laptop ~/code (#17 D): speech-F0 cortical tracking paper; next to speech-representations; laptop untracked/ignored paper outputs copied in
+  iat: [lab8]  # 2026-10-31 from laptop ~/code (#17 D): IAT latency vs embedding association; derived parquets + derivatives copied in (gitignored); raw OSF data (iat_download.py) and word vectors re-downloadable, not kept
+  sovabids-logistics: [lab10]  # 2026-10-31 from laptop ~/code (#17 D)
+  laptop-code-leftovers: [lab10]  # 2026-10-31 new (#17 D): files only the laptop's ~/code checkouts had; git-annex on gdrive-yjmantilla-annex
