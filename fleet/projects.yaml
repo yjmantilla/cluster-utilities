@@ -65,6 +65,8 @@ projects:
   yjorg: [lab10]  # personal kanban + idea issues (issues/ mirror); router/inbox for the other personal repos
   nutrition: [lab10]  # 2026-10-26 new
   languages: [lab10]  # 2026-10-26 new
+  onenote.rs: [lab10]  # fork of msiemens/onenote.rs; branch fix-transaction-log-committed-only (pushed) fixes desktop .one parsing, used for the languages OneNote export (languages#4)
+  one2html: [lab10]  # fork of msiemens/one2html, built against the patched onenote.rs (local .cargo/config.toml patch) for languages#4
   physical-exercise: [lab10]  # 2026-10-27 new (yjorg#2)
   health: [lab10]  # 2026-10-27 new: dental, optical, blood sugar, checkups
   finance: [lab10]  # 2026-10-27 new (yjorg#6); statements blocked by .gitignore until storage decision
