@@ -50,6 +50,9 @@ projects:
   speech-representations: [lab3]     # moved from lab8 2026-10-25; lab8 copy deleted after verification
   containerized-red-teaming: [lab8]
   crt-pr130: [lab8]
+  crt-compute-canada: [lab8]  # worktree of containerized-red-teaming (branch compute-canada-qwen), active 2026-11-01
+  crt-results-matrix: [lab8]  # worktree of containerized-red-teaming (branch results-site-condition-matrix)
+  tara-website: [lab8]  # Tara-Research/tara-website, branch yorguin (pushed)
   gemini-agy-investigation-P88aiW: [lab8]  # branch fix/agy-generic-capture on GitHub (containerized-red-teaming#143); outputs/ archived in gemini-agy-investigation-outputs
   aaai-overclaiming-paper: [lab8]
   aaai-overclaiming-paper-arxiv: [lab8]
