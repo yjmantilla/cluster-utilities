@@ -2,7 +2,7 @@
 Description=Run netlog every minute
 
 [Timer]
-OnCalendar=*-*-* *:*:00
+OnCalendar=*-*-* *:*:00 UTC
 AccuracySec=1s
 Persistent=false
 
