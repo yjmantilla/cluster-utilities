@@ -10,6 +10,9 @@
 #   tailscale:  device name on the tailnet (tail2e782e.ts.net) = the OS hostname
 #   auth:       how ssh logs in — `key` / `key+password` (password still enabled server-side)
 #   roots:      dirs that hold repos on this host, space-separated (audited by fleet-audit)
+#   alliance:   Alliance cluster access from this host: `yes` = its ~/.ssh/id_ed25519 is on CCDB and ~/.ssh/config
+#               has the cluster block (fir, trillium(-gpu), narval, rorqual, nibi, tamia, killarney, vulcan) +
+#               ControlMaster, and cluster-login is linked. Duo login is still per host and per cluster.
 #   status:     active | planned | retired
 
 hosts:
@@ -20,6 +23,7 @@ hosts:
     role: desktop/dev — interactive work, configs, personal docs; not long research runs
     spec: ASUS ROG Zephyrus M16, CachyOS
     auth: n/a
+    alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects ~/code
     status: active
   lab3:
@@ -29,6 +33,7 @@ hosts:
     role: research — speech-representations (P2000 GPU; keep it for GPU work); odyssey (speech-F0 paper, since 2026-10-31)
     spec: Xeon E3-1241 v3 (8 threads), 32 GB RAM, Quadro P2000, 924 GB /home, CachyOS
     auth: key+password
+    alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects
     status: active
   lab4:
@@ -38,6 +43,7 @@ hosts:
     role: research — libraries: neurodags, neurodags-private, coco-pipe (since 2026-10-31); network can drop, fine for library dev
     spec: Xeon E3-1241 v3 (8 threads), 32 GB RAM, Quadro K2200, 405 GB /home, CachyOS
     auth: key+password
+    alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects
     status: active
   lab6:
@@ -47,6 +53,7 @@ hosts:
     role: research — gica + galleria (since 2026-10-31; gica: Python port of the gICA EEG pipeline + microstates; low priority), since 2026-10-31. LEMON raw data in ~/datasets/lemon. gh not logged in; no git-annex or rclone
     spec: Xeon E3-1240 v5 (8 threads), 32 GB RAM, Quadro K620, 494 GB /home, CachyOS
     auth: key+password
+    alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects
     status: active
   lab7:
@@ -56,6 +63,7 @@ hosts:
     role: research — abint-safety (Abundant Intelligences: AI trustworthiness + Indigenous AI; review, talk, benchmark), since 2026-10-28; /home is SSD. Has ~/.config/serpapi and the gdrive-yjmantilla-annex rclone remote
     spec: Xeon E3-1240 v5 (8 threads), 32 GB RAM, Quadro K620, 405 GB /home, CachyOS
     auth: key+password
+    alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects
     status: active
   lab8:
@@ -65,6 +73,7 @@ hosts:
     role: research — containerized-red-teaming home, plus papers/small repos, iat (since 2026-10-31) (pkb moved to lab10 2026-10-26); /mnt/Datas4To backup disk (also `lab` alias)
     spec: Xeon E3-1240 v5 (8 threads), 32 GB RAM, Quadro K620, 440 GB /home, CachyOS
     auth: key+password
+    alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects ~/code
     status: active
   lab9:
@@ -74,6 +83,7 @@ hosts:
     role: research — epilepsy (data in /home ~/datasets/epilepsy; NOT the 4 TB HDD, which holds others' data, see disks.yaml), eeg-analysis-adhd-epilepsy + neuro-cocodelics (data on fir)
     spec: Xeon E3-1240 v5 (8 threads), 32 GB RAM, Quadro K620, 440 GB /home, CachyOS; login shell bash (no SSH menu)
     auth: key+password
+    alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects
     status: active
   lab10:
@@ -83,6 +93,7 @@ hosts:
     role: personal use + fleet management (the box that manages the other nodes); pkb (since 2026-10-26); kirby co-op servers ~/kirby-private (since 2026-10-26, from lab8); internal 4 TB `Data` disk holds personal backups
     spec: Xeon E3-1245 v5 (8 threads), 32 GB RAM, Quadro P2000, 434 GB /home, CachyOS
     auth: key+password
+    alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects
     status: active
   # Template for the next machine (lkj0NN-psy -> labNN). Uncomment with the same 2/4-space indent.

@@ -19,10 +19,10 @@ projects:
   # --- infra: on every host ---
   cluster-utilities: [*]
   agent-utilities: [*]
-  system-utilities: [*]
 
   # --- laptop: desktop, personal, needs a display/GPU ---
   linux-config: [laptop]
+  system-utilities: [laptop]  # Zephyrus M16 audio/latency/forensics tooling, hardcoded for that machine (was [*] until 2026-11-01)
   nvidia-laptop-power-cfg: [laptop]  # 2026-10-31: third-party (gitlab asus-linux), laptop-only GPU power tool
   waydroid_script: [laptop]  # 2026-10-31: third-party (casualsnek), laptop-only; 1 local change in tools/helper.py
   schnelle-umlaute: [laptop]  # 2026-10-31: third-party (Maik-0000FF), laptop-only typing tool
