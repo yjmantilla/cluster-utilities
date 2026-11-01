@@ -384,7 +384,7 @@ hosts:
           mounted: /mnt/Datas4To
           usage: "2.2T used, 1.6T free (59%)"
           largest: ["backup_yorguin 1.2T", "Yann 999G"]
-          note: "in fstab since 2026-10-25 (#27). backup_yorguin = HD710_PRO/easystore copies + _ELEMENTS (only copy, #18). \"Yann\" is someone else's"
+          note: "in fstab since 2026-10-25 (#27). backup_yorguin = HD710_PRO/easystore copies + _ELEMENTS (only copy, #18) + datasets/epilepsy/rawdata (2nd copy of lab9's Cleveland raw data, 878 files sha256-checked 2026-11-01). \"Yann\" is someone else's"
     - disk: sdc        # sdX/nvme names can change between boots: match by serial
       model: "KINGSTON SHFS37A480G"
       serial: 50026B726607CA2B
