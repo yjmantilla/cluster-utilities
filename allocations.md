@@ -27,3 +27,17 @@ guaranteed amount. Slurm accounts are `def-kjerbi` / `def-kjerbi_cpu` / `def-kje
 
 GPU access on **TamIA**, **Vulcan** and **Killarney**, expiring 2030-04-01. CCDB shows no numeric allocation. See the per-cluster docs
 in `compute-canada/`.
+
+## `rrg-shahabkb` (RAPI khv-102-ab): left over from an inactive role, don't rely on it
+
+CCDB (2026-11-01) lists the user's active role as **yup-345-02** (Master's, UdeM DIRO, sponsored by Karim Jerbi, kif-392-01), which
+carries def-kjerbi, rrg-kjerbi and aip-kjerbi. The inactive undergraduate role **yup-345-01** (Psychology, deactivated 2024) still lists
+membership in `rrg-shahabkb` (FT #3605 [RRG 2026], "An optimization approach to multi-species modeling of visual systems", active,
+3 allocations). Narval's Slurm still shows `rrg-shahabkb_cpu` / `rrg-shahabkb_gpu` for user yorguin (2026-11-01). Since it hangs off an
+inactive role, it may or may not accept jobs, and it isn't the user's group's allocation: don't use it unless the user says so.
+
+## Narval notes (2026-11-01)
+
+- `/project/def-kjerbi` is at 948 of 1000 GB: put working data in `/scratch/$USER`.
+- Narval nodes are AMD Zen2: no AVX-512, so don't build with `-march` flags from fir/trillium.
+- In use by: gica (`/scratch/yorguin/gica`, see `fleet/projects.yaml`).
