@@ -72,11 +72,8 @@ projects:
   llm-therapy: [lab8]
   abint-safety: [lab7]  # 2026-10-28 new: Abundant Intelligences, AI trustworthiness + Indigenous AI (hyperresearch review → talk → benchmark); git-annex on gdrive-yjmantilla-annex
   gica: [lab6]  # 2026-10-31 new: Python port of the gICA resting-state EEG pipeline (archived gica_paper), reproduce the preprint + microstates; LEMON raw data in ~/datasets/lemon on lab6 (outside git), old outputs referenced on lab10/lab8
-
-  # --- undecided: on both hosts today, on different branches/commits ---
-  neurodags: [?]
-  neurodags-private: [?]
-  cocofeats: [?]
-  coco-pipe: [?]
-  galleria: [?]
-  yjmantilla.github.io: [?]
+  neurodags: [lab4]  # 2026-10-31 (#17 C): library dev home; users on lab9 (epilepsy, eeg-analysis-adhd-epilepsy) and lab3 install from git. GitHub redirects the old name cocofeats here
+  neurodags-private: [lab4]  # 2026-10-31: private companion to neurodags (review panels, notes)
+  coco-pipe: [lab4]  # 2026-10-31: BabaSanfour/coco-pipe (write access), library used by eeg-analysis-adhd-epilepsy; next to neurodags
+  galleria: [lab6]  # 2026-10-31: private protein spreadsheet pipeline (UdeA); results/ from the laptop copied in (ignored)
+  yjmantilla.github.io: [lab10]  # 2026-10-31: personal website

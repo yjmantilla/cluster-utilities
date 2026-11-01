@@ -35,7 +35,7 @@ hosts:
     ssh: lab4
     tailscale: lkj004-psy
     ip: 100.95.248.31
-    role: research
+    role: research — libraries: neurodags, neurodags-private, coco-pipe (since 2026-10-31); network can drop, fine for library dev
     spec: Xeon E3-1241 v3 (8 threads), 32 GB RAM, Quadro K2200, 405 GB /home, CachyOS
     auth: key+password
     roots: ~/Projects
@@ -44,7 +44,7 @@ hosts:
     ssh: lab6
     tailscale: lkj006-psy
     ip: 100.124.175.38
-    role: research — gica (Python port of the gICA EEG pipeline + microstates; low priority), since 2026-10-31. LEMON raw data in ~/datasets/lemon. gh not logged in; no git-annex or rclone
+    role: research — gica + galleria (since 2026-10-31; gica: Python port of the gICA EEG pipeline + microstates; low priority), since 2026-10-31. LEMON raw data in ~/datasets/lemon. gh not logged in; no git-annex or rclone
     spec: Xeon E3-1240 v5 (8 threads), 32 GB RAM, Quadro K620, 494 GB /home, CachyOS
     auth: key+password
     roots: ~/Projects
