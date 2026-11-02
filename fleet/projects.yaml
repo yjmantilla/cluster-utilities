@@ -85,7 +85,7 @@ projects:
   coco-pipe: [lab4]  # 2026-10-31: BabaSanfour/coco-pipe (write access), library used by eeg-analysis-adhd-epilepsy; next to neurodags
   galleria: [lab6]  # 2026-10-31: private protein spreadsheet pipeline (UdeA); results/ from the laptop copied in (ignored)
   yjmantilla.github.io: [lab10]  # 2026-10-31: personal website
-  odyssey: [lab3]  # 2026-10-31 from laptop ~/code (#17 D): speech-F0 cortical tracking paper; next to speech-representations; laptop untracked/ignored paper outputs copied in
+  odyssey: [lab3]  # 2026-10-31 from laptop ~/code (#17 D): speech-F0 cortical tracking paper; next to speech-representations; laptop untracked/ignored paper outputs copied in; data in lab3 ~/datasets/odyssey (55 GB, from the laptop carry, sha256-checked 2026-11-01)
   iat: [lab8]  # 2026-10-31 from laptop ~/code (#17 D): IAT latency vs embedding association; derived parquets + derivatives copied in (gitignored); raw OSF data (iat_download.py) and word vectors re-downloadable, not kept
   sovabids-logistics: [lab10]  # 2026-10-31 from laptop ~/code (#17 D)
   laptop-code-leftovers: [lab10]  # 2026-10-31 new (#17 D): files only the laptop's ~/code checkouts had; git-annex on gdrive-yjmantilla-annex
