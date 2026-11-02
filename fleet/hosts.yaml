@@ -24,7 +24,7 @@ hosts:
     spec: ASUS ROG Zephyrus M16, CachyOS
     auth: n/a
     alliance: yes  # key checked on CCDB 2026-11-01
-    roots: ~/Projects ~/code
+    roots: ~/Projects
     status: active
   lab3:
     ssh: lab3
