@@ -13,6 +13,8 @@
 #   alliance:   Alliance cluster access from this host: `yes` = its ~/.ssh/id_ed25519 is on CCDB and ~/.ssh/config
 #               has the cluster block (fir, trillium(-gpu), narval, rorqual, nibi, tamia, killarney, vulcan) +
 #               ControlMaster, and cluster-login is linked. Duo login is still per host and per cluster.
+#   color:      this host's accent color (herdr accent + label, bin/fleet-herdr-label), so each box looks
+#               different at a glance; catppuccin palette, distinct per active host
 #   status:     active | planned | retired
 
 hosts:
@@ -25,6 +27,7 @@ hosts:
     auth: n/a
     alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects
+    color: "#b4befe"
     status: active
   lab3:
     ssh: lab3
@@ -35,6 +38,7 @@ hosts:
     auth: key+password
     alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects
+    color: "#a6e3a1"
     status: active
   lab4:
     ssh: lab4
@@ -45,6 +49,7 @@ hosts:
     auth: key+password
     alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects
+    color: "#f9e2af"
     status: active
   lab6:
     ssh: lab6
@@ -55,6 +60,7 @@ hosts:
     auth: key+password
     alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects
+    color: "#fab387"
     status: active
   lab7:
     ssh: lab7
@@ -65,6 +71,7 @@ hosts:
     auth: key+password
     alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects
+    color: "#94e2d5"
     status: active
   lab8:
     ssh: lab8
@@ -75,6 +82,7 @@ hosts:
     auth: key+password
     alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects ~/code
+    color: "#89b4fa"
     status: active
   lab9:
     ssh: lab9
@@ -85,6 +93,7 @@ hosts:
     auth: key+password
     alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects
+    color: "#cba6f7"
     status: active
   lab10:
     ssh: lab10
@@ -95,6 +104,7 @@ hosts:
     auth: key+password
     alliance: yes  # key checked on CCDB 2026-11-01
     roots: ~/Projects
+    color: "#f38ba8"
     status: active
   # Template for the next machine (lkj0NN-psy -> labNN). Uncomment with the same 2/4-space indent.
   # labNN:

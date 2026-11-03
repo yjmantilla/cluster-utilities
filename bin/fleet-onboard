@@ -125,7 +125,23 @@ read -r -d '' MENU <<'MENU_EOF' || true
 # skipped when non-interactive (scp/rsync/scripted ssh), already inside tmux or
 # herdr, not an SSH login, or NO_TMUX is set (escape hatch for agents/scripts).
 if status is-interactive; and not set -q TMUX; and not set -q HERDR_ENV; and set -q SSH_CONNECTION; and not set -q NO_TMUX
-    echo "Session:  1) none (plain fish)   2) tmux   3) herdr"
+    # Which box this is: id and color from ~/.config/fleet/host (written by cluster-utilities
+    # bin/fleet-host-label from fleet/hosts.yaml); without it, the plain hostname.
+    set -l fleet_id (prompt_hostname)
+    set -l fleet_color normal
+    if test -r ~/.config/fleet/host
+        for line in (cat ~/.config/fleet/host)
+            set -l kv (string split -m1 = -- $line)
+            switch $kv[1]
+                case id
+                    set fleet_id $kv[2]
+                case color
+                    set fleet_color $kv[2]
+            end
+        end
+    end
+    set_color -o $fleet_color; echo -n $fleet_id; set_color normal
+    echo "   Session:  1) none (plain fish)   2) tmux   3) herdr"
     echo -n "Choice [defaults to 1) plain fish in 5s]: "
     # fish's `read` has no timeout, so borrow bash for a 5s single-key read.
     set -l choice (bash -c 'read -t 5 -n 1 c; printf "%s" "$c"')

@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Make every session show which fleet host it runs on (#25), from the id and `color:` in fleet/hosts.yaml.
+# Nothing per node is hardcoded anywhere else: each host gets a small data file and the tools read it.
+#
+# On each active host:
+#   ~/.config/fleet/host                 `id=<id>` and `color=<#hex>`; the SSH login menu
+#                                        (linux-config ssh-session-menu.fish) prints the id in that color
+#   ~/.config/herdr/config.toml          merged, other settings kept (first run saves .bak-fleet-label):
+#                                        [ui] window_title = "<id>: {workspace}", [ui] tab_bar_right = [<id>],
+#                                        [theme.custom] accent = "<color>". herdr renders these on the server,
+#                                        so they name the box the panes run on even under `herdr --remote`.
+#                                        Swapped in only if that host's herdr accepts it; then reload-config.
+#   ~/.config/tmux/fleet-host.conf       status-right with the id in its color, sourced from the tmux config
+#                                        (~/.tmux.conf if it exists, else ~/.config/tmux/tmux.conf); running
+#                                        tmux servers re-read it
+# Idempotent: rerun after changing a color or adding a host.
+#
+#   fleet-host-label              all active hosts
+#   fleet-host-label lab3 lab10   only these ids
+set -euo pipefail
+here=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+hosts="$here/fleet/hosts.yaml"
+
+# id ssh tailscale color, for every active host
+mapfile -t rows < <(awk '
+  /^hosts:/ {inh=1; next}
+  inh && /^  [A-Za-z0-9_-]+:/ { if (id && st=="active") print id, ssh, ts, col; id=$1; sub(":","",id); ssh=ts=col=st="" }
+  inh && /^    ssh:/       {ssh=$2}
+  inh && /^    tailscale:/ {ts=$2}
+  inh && /^    color:/     {col=$2; gsub(/"/,"",col)}
+  inh && /^    status:/    {st=$2}
+  END { if (id && st=="active") print id, ssh, ts, col }' "$hosts")
+
+# runs on the target host: $1 = id, $2 = color
+read -r -d '' remote <<'EOF' || true
+set -euo pipefail
+id=$1 color=$2
+
+mkdir -p ~/.config/fleet
+printf 'id=%s\ncolor=%s\n' "$id" "$color" > ~/.config/fleet/host
+echo -n "host-file "
+
+mkdir -p ~/.config/tmux
+printf '# written by cluster-utilities bin/fleet-host-label from fleet/hosts.yaml; edits here are overwritten\nset -g status-right "#[fg=%s,bold] %s #[default]"\n' "$color" "$id" > ~/.config/tmux/fleet-host.conf
+tconf=~/.config/tmux/tmux.conf; [ -e ~/.tmux.conf ] && tconf=~/.tmux.conf
+line='source-file -q ~/.config/tmux/fleet-host.conf'
+touch "$tconf"; grep -qxF "$line" "$tconf" || printf '%s\n' "$line" >> "$tconf"
+if command -v tmux >/dev/null && tmux has-session 2>/dev/null; then tmux source-file ~/.config/tmux/fleet-host.conf && echo -n "tmux(reloaded) "; else echo -n "tmux "; fi
+
+command -v herdr >/dev/null || { echo "herdr not installed"; exit 0; }
+cfg=~/.config/herdr/config.toml
+mkdir -p ~/.config/herdr; touch "$cfg"
+[ -e "$cfg.bak-fleet-label" ] || cp "$cfg" "$cfg.bak-fleet-label"
+python3 - "$cfg" "$cfg.new" "$id" "$color" <<'PY'
+import sys, tomllib
+path, new, hid, color = sys.argv[1:]
+with open(path, "rb") as f: cfg = tomllib.load(f)
+ui = cfg.setdefault("ui", {})
+ui["window_title"] = f"{hid}: {{workspace}}"
+ui["tab_bar_right"] = [{"type": "text", "text": hid}]
+cfg.setdefault("theme", {}).setdefault("custom", {})["accent"] = color
+
+def val(v):
+    if isinstance(v, bool): return "true" if v else "false"
+    if isinstance(v, (int, float)): return str(v)
+    if isinstance(v, str): return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    if isinstance(v, list): return "[" + ", ".join(val(x) for x in v) + "]"
+    if isinstance(v, dict): return "{ " + ", ".join(f"{k} = {val(x)}" for k, x in v.items()) + " }"
+    raise TypeError(type(v))
+
+out = []
+def emit(table, prefix):
+    scalars = {k: v for k, v in table.items() if not isinstance(v, dict)}
+    if prefix and scalars: out.append(f"\n[{prefix}]")
+    for k, v in scalars.items(): out.append(f"{k} = {val(v)}")
+    for k, v in table.items():
+        if isinstance(v, dict): emit(v, f"{prefix}.{k}" if prefix else k)
+emit(cfg, "")
+with open(new, "w") as f: f.write("\n".join(out).lstrip("\n") + "\n")
+PY
+# only swap it in if this host's herdr version accepts it
+if ! HERDR_CONFIG_PATH="$cfg.new" herdr config check | grep -q '^config: ok'; then
+  echo "herdr $(herdr --version | awk '{print $2}') rejected it, herdr config unchanged:"; HERDR_CONFIG_PATH="$cfg.new" herdr config check | grep -m2 -E 'unknown|error'; rm -f "$cfg.new"; exit 1
+fi
+mv "$cfg.new" "$cfg"
+herdr server reload-config >/dev/null 2>&1 && echo "herdr(reloaded)" || echo "herdr (applies on next start)"
+EOF
+
+want=" $* "
+for row in "${rows[@]}"; do
+  read -r id ssh ts color <<<"$row"
+  [ $# -gt 0 ] && [[ $want != *" $id "* ]] && continue
+  [ -n "$color" ] || { echo "== $id: no color: in hosts.yaml, skipped"; continue; }
+  printf '== %-7s %s  ' "$id" "$color"
+  if [ "${ts,,}" = "$(hostname | tr A-Z a-z)" ]; then
+    bash -c "$remote" _ "$id" "$color" || echo "(failed)"
+  else
+    # `ssh: local` means the laptop; from any other box it's reached by its tailscale name.
+    # Quote the color: the login shell is fish, where an unquoted # starts a comment.
+    [ "$ssh" = local ] && ssh="yorguin@$ts"
+    ssh -o ConnectTimeout=10 "$ssh" "bash -s -- $id '$color'" <<<"$remote" || echo "(failed)"
+  fi
+done

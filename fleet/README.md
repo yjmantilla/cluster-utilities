@@ -153,6 +153,12 @@ if your login shell is fish. That menu is an embedded copy of
 `linux-config/home/dot_config/fish/conf.d/ssh-session-menu.fish`, so if you change the menu there,
 re-paste it into the script. herdr itself isn't installed, so option 3 says so until you install it.
 
+**1a. Host label.** Run `bin/fleet-host-label <id>` (from lab10 or the laptop) once the box is in
+`hosts.yaml` with a `color:`. It writes `~/.config/fleet/host` (id + color), which the SSH menu prints
+in color, plus a tmux status-right and herdr's window title, tab-bar label and accent. herdr renders
+those on the server, so `herdr --remote labN` shows the box the panes run on (#25). Rerun it for all
+hosts after changing a color.
+
 **1b. Stop it sleeping.** KDE suspends after 15 min idle by default, and a suspended box is off the
 tailnet. Mask the sleep targets (covers the login screen and every user) and set powerdevil's idle
 action to "do nothing" (so idle can't shut it down either):
