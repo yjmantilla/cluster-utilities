@@ -40,7 +40,7 @@ hosts:
     ssh: lab4
     tailscale: lkj004-psy
     ip: 100.95.248.31
-    role: research — libraries: neurodags, neurodags-private, coco-pipe (since 2026-10-31); subject-effect (since 2026-11-02); network can drop, fine for library dev
+    role: research — libraries: neurodags, neurodags-private, coco-pipe (since 2026-10-31); subject-effect, iat (since 2026-11-02, iat from lab8); network can drop, fine for library dev
     spec: Xeon E3-1241 v3 (8 threads), 32 GB RAM, Quadro K2200, 405 GB /home, CachyOS
     auth: key+password
     alliance: yes  # key checked on CCDB 2026-11-01
@@ -70,7 +70,7 @@ hosts:
     ssh: lab8
     tailscale: lkj008-psy
     ip: 100.86.65.72
-    role: research — containerized-red-teaming home, plus papers/small repos, iat (since 2026-10-31) (pkb moved to lab10 2026-10-26); /mnt/Datas4To backup disk (also `lab` alias)
+    role: research — containerized-red-teaming home, plus papers/small repos (iat was here 2026-10-31 to 11-02, now lab4) (pkb moved to lab10 2026-10-26); /mnt/Datas4To backup disk (also `lab` alias)
     spec: Xeon E3-1240 v5 (8 threads), 32 GB RAM, Quadro K620, 440 GB /home, CachyOS
     auth: key+password
     alliance: yes  # key checked on CCDB 2026-11-01
