@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Laptop, Hyprland: open the herdr of every active lab host at once, each in its own kitty window on its
-# own named workspace (`name:lab3`, `name:lab4`, ...), without stealing focus. Hosts come from
+# own workspace, without stealing focus. Workspace = 100 + the number in the host id (lab3 -> 103,
+# lab10 -> 110; 100 + list position if the id has no number). Numbered, not named: named workspaces have
+# no numeric id in the Lua API, which breaks binds that compare ws.id (the laptop's focus_wrap / Super+N). Hosts come from
 # fleet/hosts.yaml (active, not `ssh: local`). A host that already has its window is skipped, so it's
 # safe to rerun after closing one. Each window is `herdr --remote <ssh alias>`; the label/color inside
 # comes from bin/fleet-host-label.
@@ -31,16 +33,17 @@ open_classes=$(hyprctl clients -j | python3 -c 'import json,sys; print("\n".join
 
 if [ "${1:-}" = --list ]; then
   for row in "${rows[@]}"; do read -r id _ <<<"$row"
-    grep -qx "herdr-$id" <<<"$open_classes" && echo "$id: open (workspace $id)" || echo "$id: -"; done
+    grep -qx "herdr-$id" <<<"$open_classes" && echo "$id: open" || echo "$id: -"; done
   exit 0
 fi
 
-want=" $* "
+want=" $* "; pos=0
 for row in "${rows[@]}"; do
-  read -r id ssh <<<"$row"
+  read -r id ssh <<<"$row"; pos=$((pos+1))
+  num=${id//[!0-9]/}; ws=$((100 + ${num:-$pos}))
   [ $# -gt 0 ] && [[ $want != *" $id "* ]] && continue
   if grep -qx "herdr-$id" <<<"$open_classes"; then echo "$id: already open"; continue; fi
-  hyprctl -q eval "hl.window_rule({ match = { class = \"^(herdr-$id)\$\" }, workspace = \"name:$id silent\" })"
+  hyprctl -q eval "hl.window_rule({ match = { class = \"^(herdr-$id)\$\" }, workspace = \"$ws silent\" })"
   hyprctl -q dispatch "hl.dsp.exec_cmd(\"$launch $term --class herdr-$id -e herdr --remote $ssh\")"
-  echo "$id: opening on workspace $id"
+  echo "$id: opening on workspace $ws"
 done
