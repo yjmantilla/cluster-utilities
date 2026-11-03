@@ -84,6 +84,7 @@ projects:
   neurodags-private: [lab4]  # 2026-10-31: private companion to neurodags (review panels, notes)
   coco-pipe: [lab4]  # 2026-10-31: BabaSanfour/coco-pipe (write access), library used by eeg-analysis-adhd-epilepsy; next to neurodags
   subject-effect: [lab4]  # 2026-11-02 new: effect of subject centering (inner-fold z-score + within-subject condition difference) on ML condition classifiers; datasets outside git in ~/datasets on lab4
+  llm-dereification: [lab4]  # 2026-11-02 new: dereification (meditation) practice distilled into LLM LoRA adapters vs reactivity (Oswald, Arvisais, Jerbi); weights/generations off git, heavy runs on Alliance
   galleria: [lab6]  # 2026-10-31: private protein spreadsheet pipeline (UdeA); results/ from the laptop copied in (ignored)
   yjmantilla.github.io: [lab10]  # 2026-10-31: personal website
   odyssey: [lab3]  # 2026-10-31 from laptop ~/code (#17 D): speech-F0 cortical tracking paper; next to speech-representations; laptop untracked/ignored paper outputs copied in; data in lab3 ~/datasets/odyssey (55 GB, from the laptop carry, sha256-checked 2026-11-01); second copy on fir ~/projects/rrg-kjerbi/yorguin/datasets/odyssey (sha256-checked 2026-11-02)
