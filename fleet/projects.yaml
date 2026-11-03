@@ -78,6 +78,7 @@ projects:
   gbfb-port: [lab8]
   complex-seizures: [lab8]
   llm-therapy: [lab8]
+  four-bridges: [lab8]  # 2026-11-03 new (Tara): reproduce Four Bridges deception game (arXiv 2611.03600) with open-weight agents, no Kradle; models run on Compute Canada
   abint-safety: [lab7]  # 2026-10-28 new: Abundant Intelligences, AI trustworthiness + Indigenous AI (hyperresearch review → talk → benchmark); git-annex on gdrive-yjmantilla-annex
   gica: [lab6]  # 2026-10-31 new: Python port of the gICA resting-state EEG pipeline (archived gica_paper), reproduce the preprint + microstates; LEMON raw data in ~/datasets/lemon on lab6 (outside git), old outputs referenced on lab10/lab8; runs on narval (def-kjerbi_cpu): run-only clone /scratch/yorguin/gica fed from bare /scratch/yorguin/gica.git (pushed from lab6), data /scratch/yorguin/lemon
   neurodags: [lab4]  # 2026-10-31 (#17 C): library dev home; users on lab9 (epilepsy, eeg-analysis-adhd-epilepsy) and lab3 install from git. GitHub redirects the old name cocofeats here
