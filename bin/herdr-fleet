@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Laptop, Hyprland: open the herdr of every active lab host at once, each in its own kitty window on its
+# own named workspace (`name:lab3`, `name:lab4`, ...), without stealing focus. Hosts come from
+# fleet/hosts.yaml (active, not `ssh: local`). A host that already has its window is skipped, so it's
+# safe to rerun after closing one. Each window is `herdr --remote <ssh alias>`; the label/color inside
+# comes from bin/fleet-host-label.
+#
+# The workspace placement is a runtime window rule (hyprctl eval), so the Hyprland config isn't touched.
+# Hyprland >= 0.57 with a Lua config: hyprctl dispatch/eval take Lua.
+#
+#   herdr-fleet               all active lab hosts
+#   herdr-fleet lab3 lab8     only these ids
+#   herdr-fleet --list        show which hosts have a window open
+set -euo pipefail
+here=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+hosts="$here/fleet/hosts.yaml"
+term=${HERDR_FLEET_TERM:-kitty}
+launch=${HERDR_FLEET_LAUNCH-uwsm app --}   # same prefix the Hyprland binds use; set empty without UWSM
+
+command -v hyprctl >/dev/null && [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] || { echo "herdr-fleet: not in a Hyprland session" >&2; exit 2; }
+
+# id ssh, for every active host that isn't this machine
+mapfile -t rows < <(awk '
+  /^hosts:/ {inh=1; next}
+  inh && /^  [A-Za-z0-9_-]+:/ { if (id && st=="active" && ssh!="local") print id, ssh; id=$1; sub(":","",id); ssh=st="" }
+  inh && /^    ssh:/    {ssh=$2}
+  inh && /^    status:/ {st=$2}
+  END { if (id && st=="active" && ssh!="local") print id, ssh }' "$hosts")
+
+open_classes=$(hyprctl clients -j | python3 -c 'import json,sys; print("\n".join(c["class"] for c in json.load(sys.stdin)))')
+
+if [ "${1:-}" = --list ]; then
+  for row in "${rows[@]}"; do read -r id _ <<<"$row"
+    grep -qx "herdr-$id" <<<"$open_classes" && echo "$id: open (workspace $id)" || echo "$id: -"; done
+  exit 0
+fi
+
+want=" $* "
+for row in "${rows[@]}"; do
+  read -r id ssh <<<"$row"
+  [ $# -gt 0 ] && [[ $want != *" $id "* ]] && continue
+  if grep -qx "herdr-$id" <<<"$open_classes"; then echo "$id: already open"; continue; fi
+  hyprctl -q eval "hl.window_rule({ match = { class = \"^(herdr-$id)\$\" }, workspace = \"name:$id silent\" })"
+  hyprctl -q dispatch "hl.dsp.exec_cmd(\"$launch $term --class herdr-$id -e herdr --remote $ssh\")"
+  echo "$id: opening on workspace $id"
+done
