@@ -13,6 +13,8 @@
 #   herdr-fleet               all active lab hosts
 #   herdr-fleet lab3 lab8     only these ids
 #   herdr-fleet --list        show which hosts have a window open
+#   herdr-fleet --close [ids] close the windows it opened (all, or these ids). Only the laptop's viewer
+#                             closes: the herdr sessions on the hosts keep running; rerun to reattach.
 set -euo pipefail
 here=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
 hosts="$here/fleet/hosts.yaml"
@@ -30,6 +32,16 @@ mapfile -t rows < <(awk '
   END { if (id && st=="active" && ssh!="local") print id, ssh }' "$hosts")
 
 open_classes=$(hyprctl clients -j | python3 -c 'import json,sys; print("\n".join(c["class"] for c in json.load(sys.stdin)))')
+
+if [ "${1:-}" = --close ]; then
+  shift; want=" $* "
+  hyprctl clients -j | python3 -c 'import json,sys; [print(c["class"][6:], c["pid"]) for c in json.load(sys.stdin) if c["class"].startswith("herdr-")]' |
+  while read -r id pid; do
+    [ $# -gt 0 ] && [[ $want != *" $id "* ]] && continue
+    kill "$pid" && echo "$id: closed"
+  done
+  exit 0
+fi
 
 if [ "${1:-}" = --list ]; then
   for row in "${rows[@]}"; do read -r id _ <<<"$row"
