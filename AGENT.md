@@ -255,9 +255,25 @@ Move caches off `$HOME`: `export XDG_CACHE_HOME=/scratch/$USER/.cache; export PI
 - `cluv submit <cluster> job.sh`: sync then `sbatch`. `cluv submit first job.sh` submits everywhere and keeps whichever starts first.
 - `cluv status` (GPUs, queues, jobs on all clusters), `cluv run <cluster> -- <cmd>`, `cluv sh -- squeue --me`.
 
-`cluv status` is worth using on its own, even when you submit with plain `sbatch` (B.4, B.9). One command shows free GPUs, queue load and your jobs on every connected cluster, which helps pick a cluster (B.6) before submitting. It also shows storage usage per cluster. It needs live masters; untested whether it also needs a `cluv init` config, so run it from any small uv project if it asks for one.
+`cluv status` is worth using on its own, even when you submit with plain `sbatch` (B.4, B.9). One command shows idle/total GPUs per type (including MIG slices), your pending/running job counts and $HOME/$SCRATCH usage on every connected cluster, which helps pick a cluster (B.6) before submitting. It needs live masters and a `pyproject.toml` with a `[tool.cluv]` table, found from the current directory upward, but no git repo and no `cluv init`. Tested 2026-11-05 on lab4 with cluv 0.1.7 (#41). Without the file it fails with "Could not find pyproject.toml", and without `results_path` with a validation error. Minimal status-only config, in any directory:
+```toml
+[project]
+name = "cluv-status-only"
+version = "0"
+requires-python = ">=3.11"
 
-It wraps, not replaces, this setup. `cluv login` still needs Duo, so the user runs it on the agent's host (rule A.6). It needs the ControlMaster config of B.2 and GitHub SSH from the cluster: verified on fir 2026-11-04, untested on the others. It doesn't download model weights or build Apptainer images. Not installed anywhere in the fleet yet (2026-11-05); A.1 and A.4 still apply to anything it submits.
+[tool.cluv]
+results_path = "logs"          # required, unused by status
+
+[tool.cluv.clusters.fir]       # one empty table per cluster to show
+[tool.cluv.clusters.rorqual]
+[tool.cluv.clusters.nibi]
+[tool.cluv.clusters.narval]
+[tool.cluv.clusters.trillium-gpu]
+[tool.cluv.clusters.tamia]
+```
+
+It wraps, not replaces, this setup. `cluv login` still needs Duo, so the user runs it on the agent's host (rule A.6). It needs the ControlMaster config of B.2 and GitHub SSH from the cluster: verified on fir 2026-11-04, untested on the others. It doesn't download model weights or build Apptainer images. Installed so far only on lab4 (`~/.local/bin/cluv`, 0.1.7, 2026-11-05); A.1 and A.4 still apply to anything it submits.
 
 ### B.10 Monitoring & cleanup
 ```bash
