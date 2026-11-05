@@ -250,6 +250,15 @@ Move caches off `$HOME`: `export XDG_CACHE_HOME=/scratch/$USER/.cache; export PI
 5. **When done:** `rsync -av cluster:/scratch/$USER/results/ ./results/`
 6. **Analyse locally.** The cluster is compute-only.
 
+**Optional: cluv** (Mila, https://mila-iqia.github.io/cluv/, repo `mila-iqia/cluv`) automates steps 2–5 across several clusters for **uv-managed projects hosted on GitHub**. Install with `uv tool install cluster-uv` (the command is `cluv`). Main commands:
+- `cluv init` / `cluv login` / `cluv sync`: configure the project, open masters, push code + `uv sync` remotely and fetch results.
+- `cluv submit <cluster> job.sh`: sync then `sbatch`. `cluv submit first job.sh` submits everywhere and keeps whichever starts first.
+- `cluv status` (GPUs, queues, jobs on all clusters), `cluv run <cluster> -- <cmd>`, `cluv sh -- squeue --me`.
+
+`cluv status` is worth using on its own, even when you submit with plain `sbatch` (B.4, B.9). One command shows free GPUs, queue load and your jobs on every connected cluster, which helps pick a cluster (B.6) before submitting. It also shows storage usage per cluster. It needs live masters; untested whether it also needs a `cluv init` config, so run it from any small uv project if it asks for one.
+
+It wraps, not replaces, this setup. `cluv login` still needs Duo, so the user runs it on the agent's host (rule A.6). It needs the ControlMaster config of B.2 and GitHub SSH from the cluster: verified on fir 2026-11-04, untested on the others. It doesn't download model weights or build Apptainer images. Not installed anywhere in the fleet yet (2026-11-05); A.1 and A.4 still apply to anything it submits.
+
 ### B.10 Monitoring & cleanup
 ```bash
 squeue -u "$USER"            # active jobs
