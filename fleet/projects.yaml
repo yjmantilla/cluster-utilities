@@ -92,3 +92,4 @@ projects:
   iat: [lab4]  # 2026-11-02 moved from lab8 (whole tree incl. datasets/ + .hyperresearch, checksum-verified); CoCo line, next to subject-effect. 2026-10-31 from laptop ~/code (#17 D): IAT latency vs embedding association; derived parquets + derivatives copied in (gitignored); raw OSF data (iat_download.py) and word vectors re-downloadable
   sovabids-logistics: [lab10]  # 2026-10-31 from laptop ~/code (#17 D)
   laptop-code-leftovers: [lab10]  # 2026-10-31 new (#17 D): files only the laptop's ~/code checkouts had; git-annex on gdrive-yjmantilla-annex
+  worldinmotion: [lab10]  # 2026-11-07 (#42) public fork of distronode-corporation/worldinmotion (E2E agent messaging across accounts); under security review, nothing installed; upstream remote = theirs
