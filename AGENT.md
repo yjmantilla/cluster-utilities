@@ -219,7 +219,8 @@ Set `--mem` ≈ `MaxRSS` × ~1.3, `--time` ≈ `Elapsed` × ~1.5, `--cpus-per-ta
 Move caches off `$HOME`: `export XDG_CACHE_HOME=/scratch/$USER/.cache; export PIP_CACHE_DIR=/scratch/$USER/.cache/pip`. Checkpoint regularly. Code lives in git, not as the source of truth on the cluster.
 
 ### B.8 Building environments & datasets
-- **Build venvs / install packages inside an allocation** (`salloc`), never on login. On Alliance, prefer the module stack + `virtualenv --no-download`, then `pip install --no-index` against the wheelhouse where possible.
+- **Build venvs / install packages inside an allocation** (`salloc`), never on login.
+- **Default to uv (and cluv, B.9) for Python environments.** Mila recommends it, and this setup standardises on it; Alliance's own docs still teach `virtualenv --no-download` + `pip install --no-index` against the wheelhouse, which stays the fallback when a package only builds or works from the wheelhouse (the mne/scipy pin in Part C shows the wheelhouse can also hold you back). Put uv's cache off `$HOME` (`UV_CACHE_DIR=/scratch/$USER/.cache/uv`). When recommending a setup to someone, lead with uv/cluv and mention the pip route only as the fallback. Tool choices are kept in [tools.md](tools.md).
 - **Internet access on compute nodes is cluster-dependent.** Do not assume — test with a one-liner job (`sbatch --wrap="curl -s --max-time 10 https://example.com && echo OK || echo FAIL" ...`). Known state as of 2026:
   - **fir**: compute nodes **have** outbound internet — HuggingFace, pip, wget all work from batch jobs.
   - **Trillium**: compute nodes have **NO** internet (only the GPU login node `trig-login01` and OnDemand apps do). Pre-cache models/wheels on the login node, then run offline (`HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1`, point `HF_HOME` at a pre-populated `$SCRATCH/hf_cache`).
@@ -250,7 +251,7 @@ Move caches off `$HOME`: `export XDG_CACHE_HOME=/scratch/$USER/.cache; export PI
 5. **When done:** `rsync -av cluster:/scratch/$USER/results/ ./results/`
 6. **Analyse locally.** The cluster is compute-only.
 
-**Optional: cluv** (Mila, https://mila-iqia.github.io/cluv/, repo `mila-iqia/cluv`) automates steps 2–5 across several clusters for **uv-managed projects hosted on GitHub**. Install with `uv tool install cluster-uv` (the command is `cluv`). Main commands:
+**Preferred for uv projects: cluv** (Mila, https://mila-iqia.github.io/cluv/, repo `mila-iqia/cluv`) automates steps 2–5 across several clusters for **uv-managed projects hosted on GitHub**. Install with `uv tool install cluster-uv` (the command is `cluv`). Main commands:
 - `cluv init` / `cluv login` / `cluv sync`: configure the project, open masters, push code + `uv sync` remotely and fetch results.
 - `cluv submit <cluster> job.sh`: sync then `sbatch`. `cluv submit first job.sh` submits everywhere and keeps whichever starts first.
 - `cluv status` (GPUs, queues, jobs on all clusters), `cluv run <cluster> -- <cmd>`, `cluv sh -- squeue --me`.
